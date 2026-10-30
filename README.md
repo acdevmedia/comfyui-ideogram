@@ -28,6 +28,8 @@ Storage is temporary. The template does not attach a network volume. First-boot 
 
 Type a plain-English prompt and press Queue. **Magic Prompt** is on by default: Ideogram's own prompt enhancer rewrites your sentence into the structured JSON caption the model was trained on, including bounding-box layout, and generation is schema-constrained so the caption is always valid. Nothing else is required, and no JSON is involved.
 
+A plain sentence is never sent to the model raw. With Magic Prompt off, the node wraps it in a minimal valid caption so the model still receives the format it was trained on; if Magic Prompt returns something unusable, the node logs what came back and falls back to that same wrapper rather than rendering a blank frame. The caption actually used is returned as the node's second output, so you can always see what the model was given.
+
 Magic Prompt runs locally through a 1.2 GB generative head grafted onto the text encoder that is already loaded, so it adds no second model and makes no API call. It is reproducible from the seed. Turning it off sends your text to the model unchanged, which the model's authors advise against because it was trained only on structured captions.
 
 ### Advanced: writing the caption yourself

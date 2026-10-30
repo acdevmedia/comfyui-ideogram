@@ -203,6 +203,23 @@ def load_pipeline(mode):
     return pipe
 
 
+def wrap_plain_prompt(prompt):
+    """Minimal schema-valid caption for a plain sentence.
+
+    Ideogram 4 is trained only on structured captions, so raw text is out of distribution even
+    when the enhancer is unavailable. This wrapper is not a substitute for a written caption or
+    for Magic Prompt; it just keeps the model on the format it expects.
+    """
+    text = prompt.strip()
+    return json.dumps({
+        'high_level_description': text,
+        'compositional_deconstruction': {
+            'background': 'A setting consistent with the description.',
+            'elements': [{'type': 'obj', 'desc': text}],
+        },
+    }, ensure_ascii=False, separators=(',', ':'))
+
+
 class IdeogramStudio:
     CATEGORY = 'ACDEV/Ideogram 4'
     RETURN_TYPES = ('IMAGE', 'STRING')
@@ -241,6 +258,8 @@ class IdeogramStudio:
             if not prompt.strip():
                 raise ValueError('Type a prompt, or connect a structured caption to the caption input')
             text, upsample = prompt.strip(), magic_prompt
+            if not upsample:
+                text = wrap_plain_prompt(text)
         preset = PRESETS.get(sampler_preset) if mode == 'base' else None
         if preset:
             # The schedule's length must match the step count, so the preset owns both.
@@ -266,9 +285,11 @@ class IdeogramStudio:
                 parsed = json.loads(written)
                 assert isinstance(parsed, dict) and parsed.get('compositional_deconstruction')
             except Exception:
-                raise ValueError('Magic Prompt did not return a usable caption for this prompt. '
-                                 'Rephrase it, or switch magic_prompt off and use the advanced '
-                                 'caption workflow. Returned: %r' % (written[:300],))
+                # Never render from an unusable caption; fall back to the wrapper and say so.
+                print('[prompt] Magic Prompt returned an unusable caption (%r); falling back to the '
+                      'plain-prompt wrapper. Use the advanced caption workflow for full control.'
+                      % (written[:200],), flush=True)
+                written = wrap_plain_prompt(text)
             text, upsample = written, False
         from diffusers import FlowMatchEulerDiscreteScheduler
         from diffusers.schedulers.scheduling_utils import SchedulerOutput
