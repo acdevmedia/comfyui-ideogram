@@ -3,6 +3,11 @@ on:
   push:
     branches: [develop, main]
   workflow_dispatch:
+    inputs:
+      gpu_smoke:
+        description: Run paid disposable Runpod generation and editing tests
+        type: boolean
+        default: false
 permissions:
   contents: read
   packages: write
@@ -46,6 +51,7 @@ jobs:
       - name: Record image digest
         run: echo 'ghcr.io/acdevmedia/ideogram-comfyui@${{ steps.build.outputs.digest }}' >> "$GITHUB_STEP_SUMMARY"
   gpu-smoke:
+    if: github.event_name == 'workflow_dispatch' && inputs.gpu_smoke
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 55

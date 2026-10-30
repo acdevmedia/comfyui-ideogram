@@ -1,0 +1,203 @@
+{
+  "last_node_id": 10,
+  "last_link_id": 3,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "AcdevIdeogramPrompt",
+      "pos": [
+        640,
+        40
+      ],
+      "size": [
+        530,
+        730
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "structured_caption",
+          "type": "STRING",
+          "links": [
+            1
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "AcdevIdeogramPrompt"
+      },
+      "widgets_values": [
+        "An editorial watercolor painting of a fox reading a newspaper at a Paris cafe. Cool blue evening light, retain the central subject and layout.",
+        "Editorial watercolor illustration, cool blue evening palette, crisp detail",
+        "THE DAILY FOX",
+        "A quiet Paris cafe terrace, flowers, golden afternoon light",
+        "Centered subject, clear headline at the top, generous negative space.",
+        ""
+      ],
+      "title": "1. Scene, lettering and layout"
+    },
+    {
+      "id": 2,
+      "type": "AcdevIdeogramStudio",
+      "pos": [
+        1250,
+        40
+      ],
+      "size": [
+        390,
+        530
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "caption",
+          "type": "STRING",
+          "link": 1
+        },
+        {
+          "name": "reference_image",
+          "type": "IMAGE",
+          "link": 3
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            2
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "AcdevIdeogramStudio"
+      },
+      "widgets_values": [
+        "base",
+        1024,
+        1024,
+        42,
+        48,
+        7.0,
+        "lcm",
+        2.0,
+        0.0,
+        1.75,
+        1024,
+        0.5
+      ],
+      "title": "Image-to-image variation \u2014 base"
+    },
+    {
+      "id": 3,
+      "type": "SaveImage",
+      "pos": [
+        1720,
+        40
+      ],
+      "size": [
+        520,
+        600
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 2
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "SaveImage"
+      },
+      "widgets_values": [
+        "ideogram4/base_edit"
+      ],
+      "title": "3. Preview and save"
+    },
+    {
+      "id": 10,
+      "type": "LoadImage",
+      "pos": [
+        30,
+        40
+      ],
+      "size": [
+        520,
+        580
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            3
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "upload_your_image.png",
+        "image"
+      ],
+      "title": "Upload reference image"
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      2,
+      0,
+      "STRING"
+    ],
+    [
+      2,
+      2,
+      0,
+      3,
+      0,
+      "IMAGE"
+    ],
+    [
+      3,
+      10,
+      0,
+      2,
+      1,
+      "IMAGE"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.75,
+      "offset": [
+        40,
+        40
+      ]
+    }
+  },
+  "version": 0.4
+}

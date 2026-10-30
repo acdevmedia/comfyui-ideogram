@@ -23,6 +23,7 @@ Storage is temporary. The template does not attach a network volume. First-boot 
 ## Simple workflows
 
 - **01 Base Text to Image:** the official quantized NF4 conditional and unconditional branches; 48 steps, guidance 7.0.
+- **03–04 Image Edit / Variation:** upload a picture and describe the desired final image; adjust edit strength to preserve more or less of the source.
 - **02 Distilled Text to Image:** fal Instant's BF16, eight-step, single-branch checkpoint; guidance must remain 1.0. Distillation does not mean NF4/FP8 quantization.
 
 The prompt panel provides scene, visual style, exact text, background and composition. It builds a structured JSON caption locally. Advanced users can paste a complete caption into `raw_json` to control object descriptions, bounding boxes and palettes. No hosted prompt rewriting service or extra API key is needed. Use a detailed scene description; this deterministic builder is not an LLM prompt upsampler.
@@ -48,8 +49,14 @@ Prompt inspiration: [EvoLinkAI's curated examples](https://github.com/EvoLinkAI/
 
 ## Build, validate and update
 
-All container builds and runtime tests run in **GitHub Actions**. Do not build on the local workstation. Push to `develop` or `main`, or dispatch the build workflow. The workflow runs source checks, builds on an Actions runner, starts a CPU-only ComfyUI service inside the build to verify graph schemas, then publishes the image. It launches a disposable A100 Pod using that exact image digest and generates a 512×512 image with each checkpoint. Validation checks dimensions, pixel variance and entropy; these detect blank outputs, not artistic quality. PNGs, system metadata and results are uploaded as Actions artifacts. A `finally` block and an unconditional cleanup step delete the test Pod.
+All container builds and runtime tests run in **GitHub Actions**. Do not build on the local workstation. Push to `develop` or `main`, or dispatch the build workflow. Paid GPU tests are opt-in through the `gpu_smoke` dispatch input; ordinary pushes build and run CPU checks only. The workflow runs source checks, builds on an Actions runner, starts a CPU-only ComfyUI service inside the build to verify graph schemas, then publishes the image. When dispatched with `gpu_smoke=true`, it launches a disposable A100 Pod using that exact image digest and generates a 512×512 image and an image-edit result with each checkpoint, grouping each pair to keep that model loaded. Validation checks dimensions, pixel variance and entropy; these detect blank outputs, not artistic quality. PNGs, system metadata and results are uploaded as Actions artifacts. A `finally` block and an unconditional cleanup step delete the test Pod.
 
 The package must be public on GHCR for anonymous template users; account registry credentials can support private validation. Configure Actions secrets `RUNPOD_API_KEY` and, if needed, `RUNPOD_REGISTRY_AUTH_ID`. The `.runpod` listing uses the same image build and environment defaults; its required readiness test does not replace the GPU generation tests. For Serverless browser use, keep exactly one active worker and supply Runpod authentication on HTTP and WebSocket requests. The Pod template is the straightforward browser deployment.
 
 Build and GPU-validation status must be confirmed in Actions before treating a revision as tested. Captured package versions are stored in `/opt/acdev/python-lock.txt` inside each image. To update a model generation, add a new version profile, regenerate its workflow defaults and manifests, update the corresponding container tags, and repeat the remote tests. No runtime dependency upgrades or branch-head model downloads occur during Pod startup.
+
+## Image editing and model reuse
+
+Local Ideogram 4 does not provide the hosted 4.5 instruction/Precise Edit model. These workflows perform **image-to-image reconstruction and variation** using the same loaded model, VAE and text encoder as generation. The source is VAE-encoded, normalized into the pipeline latent format, blended with noise at a shortened schedule, and denoised toward the caption. It is not a dedicated instruction-following or masked-inpainting model. Describe the desired final scene rather than assuming localized semantic changes will be exact.
+
+`edit_strength=0.5` is the starting point: lower values retain more source structure; 1.0 approaches a fresh generation, and 0 returns the resized source. The initial-noise multiplier also affects the preservation/change balance. Use Euler with noise 1.0 for a reference-style comparison. The global pipeline cache reuses one loaded base or distilled pipeline for generation and editing; changing the variant releases the old pipeline before loading the other.

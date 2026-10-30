@@ -44,6 +44,7 @@ class PromptBuilder:
 def load_pipeline(mode):
     global _PIPE, _MODE
     if _PIPE is not None and _MODE == mode:
+        print('[models] Reusing loaded Ideogram pipeline:', mode, flush=True)
         return _PIPE
     import comfy.model_management
     comfy.model_management.unload_all_models()
@@ -91,10 +92,11 @@ class IdeogramStudio:
             'schedule_mu': ('FLOAT', {'default': 0.0, 'min': -5.0, 'max': 5.0}),
             'schedule_std': ('FLOAT', {'default': 1.75, 'min': 0.1, 'max': 5.0}),
             'max_text_tokens': ('INT', {'default': 1024, 'min': 256, 'max': 2048, 'step': 128}),
-        }}
+            'edit_strength': ('FLOAT', {'default': 0.5, 'min': 0.0, 'max': 1.0, 'step': 0.05}),
+        }, 'optional': {'reference_image': ('IMAGE',)}}
 
     def generate(self, caption, mode, width, height, seed, steps, guidance, sampler,
-                 noise_multiplier, schedule_mu, schedule_std, max_text_tokens):
+                 noise_multiplier, schedule_mu, schedule_std, max_text_tokens, edit_strength=0.5, reference_image=None):
         json.loads(caption)
         if mode == 'distilled' and guidance != 1.0:
             raise ValueError('The distilled single-branch checkpoint requires guidance=1.0')
@@ -102,7 +104,31 @@ class IdeogramStudio:
         from diffusers import FlowMatchEulerDiscreteScheduler
         from diffusers.schedulers.scheduling_utils import SchedulerOutput
         generator = torch.Generator(device='cuda').manual_seed(seed)
-        class FlowLCM(FlowMatchEulerDiscreteScheduler):
+        image_latent = None
+        if reference_image is not None:
+            import torch.nn.functional as F
+            pixels = reference_image[:1, :, :, :3].movedim(-1, 1).to('cuda')
+            pixels = F.interpolate(pixels, size=(height, width), mode='bicubic', align_corners=False).clamp(0, 1)
+            if edit_strength == 0:
+                return (pixels.movedim(1, -1).cpu(),)
+            with torch.inference_mode():
+                encoded = pipe.vae.encode((pixels * 2 - 1).to(pipe.vae.dtype), return_dict=False)[0].mode()
+                batch, channels, latent_h, latent_w = encoded.shape
+                patch = pipe.patch_size
+                grid_h, grid_w = latent_h // patch, latent_w // patch
+                packed = encoded.view(batch, channels, grid_h, patch, grid_w, patch).permute(0, 2, 4, 3, 5, 1).reshape(batch, grid_h * grid_w, channels * patch * patch).float()
+                mean = pipe.vae.bn.running_mean.view(1, 1, -1).to(packed)
+                std = torch.sqrt(pipe.vae.bn.running_var + pipe.vae.config.batch_norm_eps).view(1, 1, -1).to(packed)
+                image_latent = (packed - mean) / std
+        class FlowEditEuler(FlowMatchEulerDiscreteScheduler):
+            def set_timesteps(self, *args, **kwargs):
+                super().set_timesteps(*args, **kwargs)
+                if image_latent is not None:
+                    skip = min(len(self.timesteps) - 1, int(len(self.timesteps) * (1.0 - edit_strength)))
+                    self.timesteps = self.timesteps[skip:]
+                    self.sigmas = self.sigmas[skip:]
+                    self.num_inference_steps = len(self.timesteps)
+        class FlowLCM(FlowEditEuler):
             """LCM denoised prediction plus next-sigma noise, using flow interpolation."""
             def step(self, model_output, timestep, sample, return_dict=True, **kwargs):
                 if self.step_index is None: self._init_step_index(timestep)
@@ -113,10 +139,15 @@ class IdeogramStudio:
                 result = (1.0 - sigma_next) * denoised + sigma_next * noise
                 self._step_index += 1
                 return SchedulerOutput(prev_sample=result) if return_dict else (result,)
-        cls = FlowLCM if sampler == 'lcm' else FlowMatchEulerDiscreteScheduler
+        cls = FlowLCM if sampler == 'lcm' else FlowEditEuler
         pipe.scheduler = cls.from_config(pipe.scheduler.config)
         original = pipe.prepare_latents
-        def scaled_latents(*args, **kwargs): return original(*args, **kwargs) * noise_multiplier
+        def scaled_latents(*args, **kwargs):
+            noise = original(*args, **kwargs) * noise_multiplier
+            if image_latent is None:
+                return noise
+            sigma = pipe.scheduler.sigmas[0].to(noise)
+            return (1 - sigma) * image_latent.to(noise) + sigma * noise
         pipe.prepare_latents = scaled_latents
         try:
             with torch.inference_mode():
