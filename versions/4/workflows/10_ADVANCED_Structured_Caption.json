@@ -77,10 +77,12 @@
       "widgets_values": [
         "",
         false,
+        "base",
         "4.0 Default 20",
         1280,
         720,
-        42,
+        0,
+        "randomize",
         20,
         7.0,
         "euler",

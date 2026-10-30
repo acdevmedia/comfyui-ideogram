@@ -218,7 +218,7 @@ class IdeogramStudio:
             'sampler_preset': (['4.0 Default 20', '4.0 Quality 48', '4.0 Turbo 12', 'custom'],),
             'width': ('INT', {'default': 1280, 'min': 256, 'max': 2048, 'step': 16}),
             'height': ('INT', {'default': 720, 'min': 256, 'max': 2048, 'step': 16}),
-            'seed': ('INT', {'default': 42, 'min': 0, 'max': 2**63-1, 'control_after_generate': False}),
+            'seed': ('INT', {'default': 0, 'min': 0, 'max': 2**63-1, 'control_after_generate': True}),
             'steps': ('INT', {'default': 20, 'min': 1, 'max': 100}),
             'guidance': ('FLOAT', {'default': 7.0, 'min': 1.0, 'max': 15.0, 'step': 0.1}),
             'sampler': (['euler', 'lcm'],),

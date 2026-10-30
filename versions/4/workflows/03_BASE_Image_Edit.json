@@ -43,10 +43,12 @@
       "widgets_values": [
         "Change the scene to a rainy evening with warm window light and wet cobblestones, keeping the subject.",
         true,
+        "base",
         "4.0 Default 20",
         1280,
         720,
-        42,
+        0,
+        "randomize",
         20,
         7.0,
         "euler",

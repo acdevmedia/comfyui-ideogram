@@ -8,7 +8,7 @@
       "sampler_preset": "custom",
       "width": 1280,
       "height": 720,
-      "seed": 42,
+      "seed": 0,
       "steps": 8,
       "guidance": 1.0,
       "sampler": "euler",

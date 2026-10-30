@@ -69,9 +69,17 @@ The distilled path uses the [checkpoint author's documented zero-parameter uncon
 
 Prompt inspiration: [EvoLinkAI's curated examples](https://github.com/EvoLinkAI/awesome-ideogram-4.0-prompts). The packaged demonstration prompt is original. Official model notes: [Ideogram open weights](https://huggingface.co/ideogram-ai), [Ideogram inference code](https://github.com/ideogram-oss/ideogram-4). Check the model agreement for permitted use; the downloadable checkpoints use the Ideogram non-commercial model license.
 
+## Seeds
+
+The seed widget carries ComfyUI's standard **control after generate** control, set to `randomize` in every packaged workflow, so each run uses a new seed. Set it to `fixed` to reproduce an exact image, or `increment` to walk a series. Earlier releases pinned the seed at 42 with the control disabled, which made every run of a workflow produce the same picture.
+
 ## Image preview ribbon
 
-A strip of recent output images is pinned along the bottom of the ComfyUI window. It refreshes when a queued graph finishes, collapses to a title bar, and opens any thumbnail full size with a download link. It reads the recent `/history` entries through ComfyUI's own `/view` endpoint and never scans the output directory.
+A strip of recent output images sits along the bottom of the ComfyUI window and refreshes as each queued graph finishes, so you can queue a long batch and watch it fill.
+
+Click any thumbnail to open the viewer. **Left and right arrow keys** move through the batch, **space** picks the current image, **D** downloads it and **Escape** closes. The tick in the corner of a thumbnail picks it without opening the viewer. **Download picked** then saves just those files, which is the point: queue fifty, skim them, keep the three that worked.
+
+Picks live for the session and are never uploaded. The ribbon reads the recent `/history` entries through ComfyUI's own `/view` endpoint, skips transient previews, and never scans the output directory.
 
 ## Environment variables
 
