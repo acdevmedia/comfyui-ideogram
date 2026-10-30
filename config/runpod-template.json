@@ -1,0 +1,22 @@
+{
+  "name": "IDEOGRAM 4 ComfyUI Studio",
+  "imageName": "ghcr.io/acdevmedia/ideogram-comfyui:4",
+  "category": "NVIDIA",
+  "containerDiskInGb": 200,
+  "volumeInGb": 0,
+  "volumeMountPath": "/workspace",
+  "isPublic": true,
+  "isServerless": false,
+  "ports": [
+    "8000/http",
+    "8188/http"
+  ],
+  "env": {
+    "HF_TOKEN": "{{ RUNPOD_SECRET_HUGGINGFACE_TOKEN }}",
+    "HF_HOME": "/workspace/.cache/huggingface",
+    "MODEL_MODE": "both",
+    "STUDIO_VERSION": "4",
+    "PORT": "8000",
+    "PORT_HEALTH": "8001"
+  }
+}

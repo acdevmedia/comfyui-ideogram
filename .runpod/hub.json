@@ -1,0 +1,44 @@
+{
+  "title": "IDEOGRAM 4 ComfyUI Studio",
+  "description": "Local ideogram base and distilled image generation with simple, editable ComfyUI workflows.",
+  "type": "serverless",
+  "category": "image",
+  "config": {
+    "runsOn": "GPU",
+    "endpointType": "LB",
+    "containerDiskInGb": 200,
+    "gpuCount": 1,
+    "gpuIds": "AMPERE_80",
+    "allowedCudaVersions": [
+      "12.8",
+      "12.9",
+      "13.0"
+    ],
+    "env": [
+      {
+        "key": "HF_TOKEN",
+        "value": "{{ RUNPOD_SECRET_HUGGINGFACE_TOKEN }}"
+      },
+      {
+        "key": "HF_HOME",
+        "value": "/workspace/.cache/huggingface"
+      },
+      {
+        "key": "MODEL_MODE",
+        "value": "both"
+      },
+      {
+        "key": "STUDIO_VERSION",
+        "value": "4"
+      },
+      {
+        "key": "PORT",
+        "value": "8000"
+      },
+      {
+        "key": "PORT_HEALTH",
+        "value": "8001"
+      }
+    ]
+  }
+}

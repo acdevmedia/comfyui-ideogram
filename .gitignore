@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+__pycache__/
+*.py[cod]
+*.log
+*.safetensors
+*.mp4
+*.wav
+.runtime/

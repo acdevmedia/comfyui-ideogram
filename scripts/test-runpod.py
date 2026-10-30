@@ -1,0 +1,94 @@
+"""Actions-only disposable GPU test. Always deletes the pod, including on failure."""
+import argparse,copy,io,json,os,subprocess,time,urllib.parse,urllib.request,urllib.error
+from pathlib import Path
+ROOT=Path(__file__).resolve().parents[1]
+OUT=ROOT/'.runtime';OUT.mkdir(exist_ok=True)
+PROFILE=json.loads((ROOT/'config/profile.json').read_text())
+KEY=os.environ.get('RUNPOD_API_KEY','')
+
+def request(url,method='GET',data=None,auth=False,raw=False):
+ headers={'User-Agent':'acdev-validation','Content-Type':'application/json'}
+ if auth:headers['Authorization']='Bearer '+KEY
+ req=urllib.request.Request(url,method=method,data=json.dumps(data).encode() if data is not None else None,headers=headers)
+ with urllib.request.urlopen(req,timeout=45) as response:
+  data=response.read()
+  return data if raw else json.loads(data) if data else None
+
+def cloud(path,method='GET',data=None):return request('https://rest.runpod.io/v1'+path,method,data,auth=True)
+
+def cleanup():
+ state=OUT/'pod.json'
+ if not state.exists():return
+ pod=json.loads(state.read_text())
+ if pod.get('deleted'):return
+ try:cloud('/pods/'+pod['id'],'DELETE')
+ except urllib.error.HTTPError as exc:
+  if exc.code!=404:raise
+ pod['deleted']=True;state.write_text(json.dumps(pod,indent=2))
+ print('Deleted validation pod',pod['id'],flush=True)
+
+def logs(pod_id):
+ try:
+  pod=cloud('/pods/'+pod_id);ip=pod.get('publicIp');port=pod.get('portMappings',{}).get('2222')
+  if ip and port:
+   result=subprocess.run(['ssh','-i',str(OUT/'test-key'),'-p',str(port),'-o','StrictHostKeyChecking=accept-new','-o','UserKnownHostsFile='+str(OUT/'known_hosts'),'-o','ConnectTimeout=10','root@'+ip,'tail -n 180 /workspace/logs/studio-startup.log'],capture_output=True,text=True,timeout=30)
+   (OUT/'startup.log').write_text(result.stdout+result.stderr)
+ except Exception as exc:print('Diagnostic retrieval:',type(exc).__name__,flush=True)
+
+def main():
+ parser=argparse.ArgumentParser();parser.add_argument('--cleanup',action='store_true');args=parser.parse_args()
+ if args.cleanup:cleanup();return
+ assert KEY,'RUNPOD_API_KEY Actions secret is required'
+ digest=os.environ['IMAGE_DIGEST'];assert digest.startswith('sha256:')
+ subprocess.run(['ssh-keygen','-q','-t','ed25519','-N','','-f',str(OUT/'test-key')],check=True)
+ config=json.loads((ROOT/'config/runpod-template.json').read_text());env={**config['env'],'PUBLIC_KEY':(OUT/'test-key.pub').read_text().strip()}
+ payload={'name':f'acdev-{PROFILE["kind"]}-{os.environ.get("GITHUB_RUN_ID","test")}-validation','imageName':config['imageName'].split(':')[0]+'@'+digest,'cloudType':'SECURE','computeType':'GPU','gpuTypeIds':['NVIDIA A100-SXM4-80GB','NVIDIA A100 80GB PCIe'],'gpuTypePriority':'availability','gpuCount':1,'containerDiskInGb':200,'volumeInGb':0,'volumeMountPath':'/workspace','ports':['8000/http','8188/http','2222/tcp'],'supportPublicIp':True,'env':env}
+ if os.environ.get('RUNPOD_REGISTRY_AUTH_ID'):payload['containerRegistryAuthId']=os.environ['RUNPOD_REGISTRY_AUTH_ID']
+ pod=None
+ try:
+  pod=cloud('/pods','POST',payload)
+  (OUT/'pod.json').write_text(json.dumps({'id':pod['id'],'created_at':time.time(),'image':payload['imageName'],'costPerHr':pod.get('costPerHr')},indent=2))
+  print('Validation pod:',pod['id'],'hourly rate:',pod.get('costPerHr'),flush=True)
+  base=f'https://{pod["id"]}-8000.proxy.runpod.net';start=time.monotonic()
+  while time.monotonic()-start<1800:
+   try:
+    ready=request(base+'/ping')
+    if ready.get('status')=='ready':break
+   except Exception:pass
+   status=cloud('/pods/'+pod['id'])
+   if status.get('desiredStatus') in ['EXITED','TERMINATED']:raise RuntimeError('Validation pod exited before readiness')
+   print('Waiting for image pull/model provisioning:',round(time.monotonic()-start),'seconds',flush=True);time.sleep(20)
+  else:raise TimeoutError('Pod did not become ready in 30 minutes')
+  stats=request(base+'/system_stats');assert any(d.get('type')=='cuda' for d in stats['devices']),stats
+  (OUT/'system.json').write_text(json.dumps(stats,indent=2))
+  info=request(base+'/object_info');results={}
+  for path in sorted((ROOT/'versions'/PROFILE['version']/'api').glob('*.json')):
+   graph=json.loads(path.read_text())
+   for n in graph.values():
+    assert n['class_type'] in info,n['class_type']
+    if n['class_type'].endswith('Studio'):n['inputs'].update(width=512,height=512)
+    if n['class_type']=='SaveImage':n['inputs']['filename_prefix']='validation/'+path.stem
+   begin=time.monotonic();queued=request(base+'/prompt','POST',{'prompt':graph});pid=queued['prompt_id']
+   while time.monotonic()-begin<900:
+    history=request(base+'/history/'+pid)
+    if pid in history:
+     result=history[pid];assert result['status']['status_str']=='success',result['status']
+     images=[im for output in result.get('outputs',{}).values() for im in output.get('images',[])]
+     assert images,'No image was produced'
+     raw=request(base+'/view?'+urllib.parse.urlencode(images[0]),raw=True)
+     (OUT/(path.stem+'.png')).write_bytes(raw)
+     from PIL import Image,ImageStat
+     image=Image.open(io.BytesIO(raw)).convert('RGB');metrics=ImageStat.Stat(image)
+     assert image.size==(512,512),image.size
+     assert max(metrics.stddev)>8,'Output is blank or nearly uniform'
+     assert image.entropy()>3,'Output lacks image detail'
+     results[path.stem]={'seconds':round(time.monotonic()-begin,2),'size':list(image.size),'stddev':metrics.stddev,'entropy':image.entropy(),'status':'passed'}
+     print('PASS GPU generation:',path.name,results[path.stem],flush=True);break
+    time.sleep(10)
+   else:raise TimeoutError('Generation timed out: '+path.name)
+  (OUT/'validation.json').write_text(json.dumps({'kind':PROFILE['kind'],'version':PROFILE['version'],'image_digest':digest,'results':results},indent=2))
+ finally:
+  if pod:
+   logs(pod['id']);cleanup()
+
+if __name__=='__main__':main()

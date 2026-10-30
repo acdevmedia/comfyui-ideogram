@@ -1,0 +1,20 @@
+{
+  "kind": "ideogram",
+  "version": "4",
+  "comfyui_commit": "b5a432157de6b8884f81104cd02926adf4d597e4",
+  "container_image": "ghcr.io/acdevmedia/ideogram-comfyui:4",
+  "default_mode": "base",
+  "models": [],
+  "snapshots": [
+    {
+      "repo": "ideogram-ai/ideogram-4-nf4-diffusers",
+      "revision": "1874bc70267ba2c823a7239e1d70dd308c8d64dc",
+      "directory": "base"
+    },
+    {
+      "repo": "fal/ideogram-v4-instant",
+      "revision": "d47b425d7ee14f5add208adeab68e7dbfc18cf51",
+      "directory": "distilled"
+    }
+  ]
+}

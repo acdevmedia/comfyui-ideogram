@@ -1,0 +1,43 @@
+{
+  "1": {
+    "class_type": "AcdevIdeogramPrompt",
+    "inputs": {
+      "scene": "A witty editorial poster of a red fox reading a newspaper at a Paris cafe. Warm afternoon sunshine, elegant ink illustration, inviting composition.",
+      "style": "Editorial illustration, warm palette, crisp detail",
+      "text_in_image": "THE DAILY FOX",
+      "background": "A quiet Paris cafe terrace, flowers, golden afternoon light",
+      "layout": "Centered subject, clear headline at the top, generous negative space.",
+      "raw_json": ""
+    }
+  },
+  "2": {
+    "class_type": "AcdevIdeogramStudio",
+    "inputs": {
+      "caption": [
+        "1",
+        0
+      ],
+      "mode": "base",
+      "width": 1024,
+      "height": 1024,
+      "seed": 42,
+      "steps": 48,
+      "guidance": 7.0,
+      "sampler": "lcm",
+      "noise_multiplier": 2.0,
+      "schedule_mu": 0.0,
+      "schedule_std": 1.75,
+      "max_text_tokens": 1024
+    }
+  },
+  "3": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "2",
+        0
+      ],
+      "filename_prefix": "Ideogram4/base"
+    }
+  }
+}

@@ -1,0 +1,14 @@
+*
+!Dockerfile
+!scripts/
+!scripts/**
+!versions/
+!versions/**
+!config/
+!config/**
+!custom_nodes/
+!custom_nodes/**
+!.runpod/
+!.runpod/handler.py
+**/__pycache__
+**/*.pyc

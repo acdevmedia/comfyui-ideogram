@@ -1,0 +1,46 @@
+{
+  "tests": [
+    {
+      "name": "comfyui_readiness",
+      "input": {
+        "healthcheck": true
+      },
+      "timeout": 1800000
+    }
+  ],
+  "config": {
+    "gpuTypeId": "NVIDIA A100 80GB PCIe",
+    "gpuCount": 1,
+    "allowedCudaVersions": [
+      "12.8",
+      "12.9",
+      "13.0"
+    ],
+    "env": [
+      {
+        "key": "HF_TOKEN",
+        "value": "{{ RUNPOD_SECRET_HUGGINGFACE_TOKEN }}"
+      },
+      {
+        "key": "HF_HOME",
+        "value": "/workspace/.cache/huggingface"
+      },
+      {
+        "key": "MODEL_MODE",
+        "value": "both"
+      },
+      {
+        "key": "STUDIO_VERSION",
+        "value": "4"
+      },
+      {
+        "key": "PORT",
+        "value": "8000"
+      },
+      {
+        "key": "PORT_HEALTH",
+        "value": "8001"
+      }
+    ]
+  }
+}

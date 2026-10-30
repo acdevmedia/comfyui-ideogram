@@ -1,0 +1,151 @@
+{
+  "last_node_id": 3,
+  "last_link_id": 2,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "AcdevIdeogramPrompt",
+      "pos": [
+        40,
+        40
+      ],
+      "size": [
+        530,
+        730
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "structured_caption",
+          "type": "STRING",
+          "links": [
+            1
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "AcdevIdeogramPrompt"
+      },
+      "widgets_values": [
+        "A witty editorial poster of a red fox reading a newspaper at a Paris cafe. Warm afternoon sunshine, elegant ink illustration, inviting composition.",
+        "Editorial illustration, warm palette, crisp detail",
+        "THE DAILY FOX",
+        "A quiet Paris cafe terrace, flowers, golden afternoon light",
+        "Centered subject, clear headline at the top, generous negative space.",
+        ""
+      ],
+      "title": "1. Scene, lettering and layout"
+    },
+    {
+      "id": 2,
+      "type": "AcdevIdeogramStudio",
+      "pos": [
+        650,
+        40
+      ],
+      "size": [
+        390,
+        530
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "caption",
+          "type": "STRING",
+          "link": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            2
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "AcdevIdeogramStudio"
+      },
+      "widgets_values": [
+        "distilled",
+        1024,
+        1024,
+        42,
+        8,
+        1.0,
+        "lcm",
+        2.0,
+        0.0,
+        1.75,
+        1024
+      ],
+      "title": "2. Shot settings \u2014 distilled"
+    },
+    {
+      "id": 3,
+      "type": "SaveImage",
+      "pos": [
+        1120,
+        40
+      ],
+      "size": [
+        520,
+        600
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 2
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "SaveImage"
+      },
+      "widgets_values": [
+        "Ideogram4/distilled"
+      ],
+      "title": "3. Preview and save"
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      2,
+      0,
+      "STRING"
+    ],
+    [
+      2,
+      2,
+      0,
+      3,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.75,
+      "offset": [
+        40,
+        40
+      ]
+    }
+  },
+  "version": 0.4
+}
