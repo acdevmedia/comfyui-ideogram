@@ -4,6 +4,9 @@
     "inputs": {
       "prompt": "A witty editorial poster of a red fox in a bow tie reading a newspaper at a sunny Paris cafe table, with the headline \"THE DAILY FOX\" across the top.",
       "magic_prompt": true,
+      "text_in_image": "",
+      "background": "",
+      "style": "",
       "mode": "distilled",
       "sampler_preset": "custom",
       "width": 1280,

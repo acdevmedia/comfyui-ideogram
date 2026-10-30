@@ -44,7 +44,13 @@ Type a plain-English prompt and press Queue. **Magic Prompt** is on by default: 
 
 **Leave Magic Prompt on.** Beyond adherence, it materially reduces spurious safety-filter refusals: the model is trained on rich structured captions, and the enhancer rewrites your sentence into one. A thin wrapper around your literal wording is closer to plain text, which Ideogram's own documentation notes triggers false positives more often. Observed directly on the same prompt and settings: enhancer on produced an image, enhancer off returned the filter's placeholder card.
 
-**`text_in_image` is off by default.** The enhancer volunteers an in-image text element even for prompts that never mention lettering, and the distilled checkpoint renders it as pseudo-words across the frame. With this off, text elements the enhancer invented are dropped from the caption and the removal is logged. Turn it on for posters, signage and anything where you want typography.
+**Optional caption overrides.** Three fields on the node steer the caption without touching JSON. Leave any of them blank and the enhancer's own choice stands.
+
+- **text_in_image** — the literal words to render. Blank also *removes* lettering the enhancer invented, which is the usual case for photographic prompts; the removal is logged.
+- **background** — replaces the caption's background description.
+- **style** — replaces the style block's art direction, or folds into the summary when the caption has no style block, rather than inventing the aesthetics, lighting and medium the schema would otherwise require.
+
+**`text_in_image` is blank by default.** The enhancer volunteers an in-image text element even for prompts that never mention lettering, and the distilled checkpoint renders it as pseudo-words across the frame. Blank drops the text elements the enhancer invented; put your words in the field for posters, signage and anything where you want typography.
 
 A plain sentence is never sent to the model raw. With Magic Prompt off, the node wraps it in a minimal valid caption so the model still receives the format it was trained on; if Magic Prompt returns something unusable, the node logs what came back and falls back to that same wrapper rather than rendering a blank frame. The caption actually used is returned as the node's second output, so you can always see what the model was given.
 

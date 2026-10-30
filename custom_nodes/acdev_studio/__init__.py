@@ -222,6 +222,57 @@ def strip_text_elements(caption):
         return caption, 0
 
 
+def apply_overrides(caption, text_in_image, background, style):
+    """Apply the node's optional caption overrides. A blank field changes nothing."""
+    try:
+        data = json.loads(caption)
+    except Exception:
+        return caption
+    comp = data.setdefault('compositional_deconstruction', {})
+    elements = comp.get('elements') or []
+
+    wanted = text_in_image.strip()
+    if wanted:
+        lettering = {'type': 'text', 'text': wanted,
+                     'desc': 'Clear, accurately spelled lettering reading "%s".' % wanted}
+        elements = [e for e in elements if e.get('type') != 'text'] + [lettering]
+    else:
+        kept = [e for e in elements if e.get('type') != 'text']
+        if len(kept) != len(elements):
+            print('[prompt] Removed %d in-image text element(s) the enhancer added; put the words '
+                  'in text_in_image to keep lettering.' % (len(elements) - len(kept)), flush=True)
+        elements = kept or [{'type': 'obj', 'desc': data.get('high_level_description', '')}]
+    comp['elements'] = elements
+
+    if background.strip():
+        comp['background'] = background.strip()
+    comp.setdefault('background', 'A setting consistent with the description.')
+    # background must precede elements in the trained key order.
+    data['compositional_deconstruction'] = {'background': comp['background'], 'elements': comp['elements']}
+
+    if style.strip():
+        existing = data.get('style_description')
+        if isinstance(existing, dict) and existing:
+            key = 'photo' if existing.get('medium') == 'photograph' else 'art_style'
+            rebuilt = {}
+            for k in ('aesthetics', 'lighting', 'photo', 'medium', 'art_style', 'color_palette'):
+                if k == key:
+                    rebuilt[k] = style.strip()
+                elif k in existing:
+                    rebuilt[k] = existing[k]
+            data['style_description'] = rebuilt
+        else:
+            # No style block to amend, so fold the request into the summary rather than
+            # inventing the aesthetics, lighting and medium the schema would require.
+            data['high_level_description'] = (data.get('high_level_description', '').rstrip('. ')
+                                              + '. ' + style.strip()).strip()
+    ordered = {}
+    for k in ('high_level_description', 'style_description', 'compositional_deconstruction'):
+        if k in data:
+            ordered[k] = data[k]
+    return json.dumps(ordered, ensure_ascii=False, separators=(',', ':'))
+
+
 def wrap_plain_prompt(prompt):
     """Minimal schema-valid caption for a plain sentence.
 
@@ -251,8 +302,11 @@ class IdeogramStudio:
             'prompt': ('STRING', {'multiline': True, 'default': ''}),
             # Ideogram 4 is trained only on structured captions; Magic Prompt writes one from plain text.
             'magic_prompt': ('BOOLEAN', {'default': True}),
-            # The enhancer volunteers in-image text; most prompts do not want any.
-            'text_in_image': ('BOOLEAN', {'default': False}),
+            # Blank means "leave it to the enhancer"; text_in_image blank also removes the
+            # lettering it invents, which is almost never wanted on a photographic prompt.
+            'text_in_image': ('STRING', {'default': ''}),
+            'background': ('STRING', {'default': ''}),
+            'style': ('STRING', {'default': ''}),
             'mode': (['base', 'distilled'],),
             'sampler_preset': (['4.0 Default 20', '4.0 Quality 48', '4.0 Turbo 12', 'custom'],),
             'width': ('INT', {'default': 1280, 'min': 256, 'max': 2048, 'step': 16}),
@@ -268,7 +322,7 @@ class IdeogramStudio:
             'image_strength': ('FLOAT', {'default': 0.5, 'min': 0.0, 'max': 1.0, 'step': 0.05}),
         }, 'optional': {'caption': ('STRING', {'forceInput': True}), 'reference_image': ('IMAGE',)}}
 
-    def generate(self, prompt, magic_prompt, text_in_image, mode, sampler_preset, width, height, seed, steps, guidance, sampler,
+    def generate(self, prompt, magic_prompt, text_in_image, background, style, mode, sampler_preset, width, height, seed, steps, guidance, sampler,
                  noise_multiplier, schedule_mu, schedule_std, max_text_tokens, image_strength=0.5,
                  caption=None, reference_image=None):
         if caption is not None and caption.strip():
@@ -280,7 +334,7 @@ class IdeogramStudio:
                 raise ValueError('Type a prompt, or connect a structured caption to the caption input')
             text, upsample = prompt.strip(), magic_prompt
             if not upsample:
-                text = wrap_plain_prompt(text)
+                text = apply_overrides(wrap_plain_prompt(text), text_in_image, background, style)
         preset = PRESETS.get(sampler_preset) if mode == 'base' else None
         if preset:
             # The schedule's length must match the step count, so the preset owns both.
@@ -311,11 +365,7 @@ class IdeogramStudio:
                       'plain-prompt wrapper. Use the advanced caption workflow for full control.'
                       % (written[:200],), flush=True)
                 written = wrap_plain_prompt(text)
-            if not text_in_image:
-                written, dropped = strip_text_elements(written)
-                if dropped:
-                    print('[prompt] Removed %d text element(s) the enhancer added; '
-                          'switch text_in_image on to keep lettering.' % dropped, flush=True)
+            written = apply_overrides(written, text_in_image, background, style)
             text, upsample = written, False
         from diffusers import FlowMatchEulerDiscreteScheduler
         from diffusers.schedulers.scheduling_utils import SchedulerOutput

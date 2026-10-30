@@ -4,6 +4,9 @@
     "inputs": {
       "prompt": "Change the scene to a rainy evening with warm window light and wet cobblestones, keeping the subject.",
       "magic_prompt": true,
+      "text_in_image": "",
+      "background": "",
+      "style": "",
       "mode": "base",
       "sampler_preset": "4.0 Default 20",
       "width": 1280,
