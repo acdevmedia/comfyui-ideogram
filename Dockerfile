@@ -16,6 +16,6 @@ RUN python3 /opt/acdev/scripts/patch-comfyui-proxy-guard.py /opt/acdev/ComfyUI/s
 RUN chmod +x /opt/acdev/scripts/*.sh && python3 /opt/acdev/scripts/check-build.py
 ARG VCS_REF=development
 RUN printf '%s\n' "$VCS_REF" > /opt/acdev/image-commit && python3 -m pip freeze > /opt/acdev/python-lock.txt
-ENV PYTHONUNBUFFERED=1 HF_HOME=/workspace/.cache/huggingface STUDIO_VERSION=4 MODEL_MODE=both PORT=8000 PORT_HEALTH=8001
+ENV PYTHONWARNINGS=ignore::FutureWarning PYTHONUNBUFFERED=1 HF_HOME=/workspace/.cache/huggingface STUDIO_VERSION=4 MODEL_MODE=both PORT=8000 PORT_HEALTH=8001
 EXPOSE 8188 8000 8001 2222
 ENTRYPOINT ["python3", "/opt/acdev/handler.py", "/opt/acdev/scripts/start.sh"]

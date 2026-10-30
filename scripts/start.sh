@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 mkdir -p /workspace/logs /workspace/ComfyUI/{models,input,output,user/default/workflows}
-exec > >(tee -a /workspace/logs/studio-startup.log) 2>&1
+# ComfyUI colourises its log unconditionally, with no TTY check, so the escape codes end up
+# in captured logs as literal junk. Strip them before the console and the log file.
+exec > >(sed -u $'s/\033\[[0-9;]*[A-Za-z]//g' | tee -a /workspace/logs/studio-startup.log) 2>&1
 if [[ -n "${PUBLIC_KEY:-}" ]]; then
   install -d -m 700 /root/.ssh /run/sshd
   printf '%s\n' "$PUBLIC_KEY" > /root/.ssh/authorized_keys
