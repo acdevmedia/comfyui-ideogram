@@ -31,22 +31,35 @@ The ComfyUI origin-guard patch is applied during the image build, and the build 
 
 Remote validation is opt-in through the `gpu_smoke` dispatch input; ordinary pushes build and run CPU checks only. `scripts/test-runpod.py --keep` leaves the Pod running for manual inspection, `--pod <id>` re-runs the matrix against a running Pod, and `--cleanup` deletes it. Pod reuse randomises seeds, because ComfyUI returns cached outputs in milliseconds for an identical prompt and seed, which would otherwise look like a passing run that never executed.
 
-## Open defect — Magic Prompt renders blank (2026-10-30)
+## Resolved — Magic Prompt blank render (2026-10-30)
 
-On image digest `sha256:9eaf9523d4ef82d05e6b0510707c3e87f42c583d7b6eddc993adc39c095a925d`, the
-default workflow **01 Base Text to Image** (plain prompt, `magic_prompt` on) produced a near-white
-frame and failed the blank-output check. **10 Advanced Structured Caption** passed on the same Pod
-in the same run, at 31.04 s with entropy 8.44, using the same sampler, preset and noise settings.
-The only difference between them is Magic Prompt, so the enhancer path is the fault, not sampling.
+Fixed and verified on a kept L40S-class Pod from digest
+`sha256:...` built from `530300e`. All five graphs passed, including the plain-prompt
+workflow that previously rendered a near-white frame:
 
-The output is near-white rather than the mid-grey "Image blocked by safety filter" card, so this is
-a failed generation, not a refusal. The most likely cause is the enhancer returning an empty or
-malformed caption that is then encoded as near-empty conditioning.
+| Workflow | Elapsed |
+| --- | --- |
+| 10 Advanced Structured Caption | 42.89 s |
+| 01 Base Text to Image | 42.64 s |
+| 03 Base Image to Image | 32.42 s |
+| 02 Distilled Text to Image | 32.57 s |
+| 04 Distilled Image to Image | 21.93 s |
 
-The node now runs `upsample_prompt` explicitly, validates that the result parses as a caption with a
-`compositional_deconstruction`, and raises a readable error naming the returned text when it does
-not. It also returns the caption actually used as a second output, so the enhancer's work is
-visible. That converts a silent blank render into a diagnosable failure, but it does not yet fix the
-underlying cause, which needs a GPU Pod to investigate.
+The base poster render was inspected visually: legible masthead typography, correct subject and
+composition. The enhancer ran successfully rather than falling back — the fallback logs whenever it
+cannot parse a caption, and the Pod's log contains no such entry. The earlier hypothesis that the
+NF4-quantized text encoder made the grafted enhancer head unusable was **wrong**; it works.
 
-Until this is resolved, the dependable Ideogram path is **10 Advanced Structured Caption**.
+## Observed behaviour
+
+- **Magic Prompt reduces spurious safety refusals.** On one prompt with identical settings, the
+  enhancer produced an image while the plain-wrapper path returned the filter's placeholder card.
+  This matches Ideogram's documentation that plain text triggers false positives more often than
+  structured captions. One pair of observations, not a measured rate.
+- **The enhancer adds in-image text unprompted**, which the distilled checkpoint renders as
+  pseudo-words. `text_in_image` defaults off and strips those elements from the caption.
+
+## Still unverified
+
+The ComfyUI origin-guard patch is present in the published image and the build fails if it does not
+apply, but no cross-site navigation has yet been confirmed against a live Pod running it.

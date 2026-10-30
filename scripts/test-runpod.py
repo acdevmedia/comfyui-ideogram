@@ -83,7 +83,7 @@ def main():
   def sort_key(path):
    graph=json.loads(path.read_text())
    mode=next(n['inputs']['mode'] for n in graph.values() if n['class_type'].endswith('Studio'))
-   return (mode, 'Image_Edit' in path.name)
+   return (mode, 'Image_to_Image' in path.name)
   for path in sorted(paths,key=sort_key):
    graph=json.loads(path.read_text())
    for n in graph.values():
@@ -116,7 +116,7 @@ def main():
      assert image.size==(512,512),image.size
      assert max(metrics.stddev)>8,'Output is blank or nearly uniform'
      assert image.entropy()>3,'Output lacks image detail'
-     if 'Image_Edit' in path.name:
+     if 'Image_to_Image' in path.name:
       from PIL import ImageChops
       source=Image.open(io.BytesIO(source_images[mode])).convert('RGB')
       difference=ImageStat.Stat(ImageChops.difference(source,image))

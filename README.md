@@ -1,3 +1,17 @@
+## Image to image
+
+Ideogram 4 has **no local edit model**. There is no instruction-following or masked-inpainting
+checkpoint in the open weights, so these workflows do not edit a picture the way a hosted editor
+would. They perform **image-to-image variation**: the source is VAE-encoded, normalized into the
+pipeline latent format, blended with noise at a shortened schedule, and denoised toward the caption,
+using the same loaded model, VAE and text encoder as generation. Describe the result you want rather
+than expecting a localized, surgical change.
+
+`image_strength=0.5` is the starting point. Lower values keep more of the source; 1.0 approaches a
+fresh generation and 0 returns the resized source unchanged. The global pipeline cache reuses one
+loaded base or distilled pipeline for both generation and variation, releasing the old one only when
+you switch variant.
+
 # Ideogram 4 Image ComfyUI One-Click
 
 [![Runpod](https://api.runpod.io/badge/acdevmedia/comfyui-ideogram)](https://console.runpod.io/hub/listing/acdevmedia/comfyui-ideogram)
@@ -23,10 +37,14 @@ Storage is temporary. The template does not attach a network volume. First-boot 
 ## Simple workflows
 
 - **01 Base Text to Image:** a plain prompt, Magic Prompt on, running the official **4.0 Default 20** preset against the quantized NF4 conditional and unconditional branches.
-- **03–04 Image Edit / Variation:** upload a picture and describe the desired final image; adjust edit strength to preserve more or less of the source.
+- **03–04 Image to Image:** upload a picture and describe the desired result; `image_strength` sets how far from the source to travel.
 - **02 Distilled Text to Image:** fal Instant's BF16, eight-step, single-branch checkpoint; guidance must remain 1.0. Distillation does not mean NF4/FP8 quantization.
 
 Type a plain-English prompt and press Queue. **Magic Prompt** is on by default: Ideogram's own prompt enhancer rewrites your sentence into the structured JSON caption the model was trained on, including bounding-box layout, and generation is schema-constrained so the caption is always valid. Nothing else is required, and no JSON is involved.
+
+**Leave Magic Prompt on.** Beyond adherence, it materially reduces spurious safety-filter refusals: the model is trained on rich structured captions, and the enhancer rewrites your sentence into one. A thin wrapper around your literal wording is closer to plain text, which Ideogram's own documentation notes triggers false positives more often. Observed directly on the same prompt and settings: enhancer on produced an image, enhancer off returned the filter's placeholder card.
+
+**`text_in_image` is off by default.** The enhancer volunteers an in-image text element even for prompts that never mention lettering, and the distilled checkpoint renders it as pseudo-words across the frame. With this off, text elements the enhancer invented are dropped from the caption and the removal is logged. Turn it on for posters, signage and anything where you want typography.
 
 A plain sentence is never sent to the model raw. With Magic Prompt off, the node wraps it in a minimal valid caption so the model still receives the format it was trained on; if Magic Prompt returns something unusable, the node logs what came back and falls back to that same wrapper rather than rendering a blank frame. The caption actually used is returned as the node's second output, so you can always see what the model was given.
 
@@ -108,7 +126,7 @@ Build and GPU-validation status must be confirmed in Actions before treating a r
 
 Local Ideogram 4 does not provide the hosted 4.5 instruction/Precise Edit model. These workflows perform **image-to-image reconstruction and variation** using the same loaded model, VAE and text encoder as generation. The source is VAE-encoded, normalized into the pipeline latent format, blended with noise at a shortened schedule, and denoised toward the caption. It is not a dedicated instruction-following or masked-inpainting model. Describe the desired final scene rather than assuming localized semantic changes will be exact.
 
-`edit_strength=0.5` is the starting point: lower values retain more source structure; 1.0 approaches a fresh generation, and 0 returns the resized source. The initial-noise multiplier also affects the preservation/change balance. Use Euler with noise 1.0 for a reference-style comparison. The global pipeline cache reuses one loaded base or distilled pipeline for generation and editing; changing the variant releases the old pipeline before loading the other.
+`image_strength=0.5` is the starting point: lower values retain more source structure; 1.0 approaches a fresh generation, and 0 returns the resized source. The initial-noise multiplier also affects the preservation/change balance. Use Euler with noise 1.0 for a reference-style comparison. The global pipeline cache reuses one loaded base or distilled pipeline for generation and editing; changing the variant releases the old pipeline before loading the other.
 
 ## Troubleshooting
 

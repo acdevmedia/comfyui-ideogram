@@ -30,7 +30,7 @@
       "schedule_mu": 0.0,
       "schedule_std": 1.75,
       "max_text_tokens": 1024,
-      "edit_strength": 0.5,
+      "image_strength": 0.5,
       "caption": [
         "1",
         0

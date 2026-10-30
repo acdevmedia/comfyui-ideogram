@@ -203,6 +203,25 @@ def load_pipeline(mode):
     return pipe
 
 
+def strip_text_elements(caption):
+    """Drop in-image text the enhancer added on its own.
+
+    Ideogram is a typography model and its enhancer frequently adds a text element even for
+    prompts that never mention lettering, which renders as pseudo-words across the image.
+    """
+    try:
+        data = json.loads(caption)
+        comp = data.get('compositional_deconstruction') or {}
+        elements = comp.get('elements') or []
+        kept = [e for e in elements if e.get('type') != 'text']
+        if len(kept) == len(elements):
+            return caption, 0
+        comp['elements'] = kept or [{'type': 'obj', 'desc': data.get('high_level_description', '')}]
+        return json.dumps(data, ensure_ascii=False, separators=(',', ':')), len(elements) - len(kept)
+    except Exception:
+        return caption, 0
+
+
 def wrap_plain_prompt(prompt):
     """Minimal schema-valid caption for a plain sentence.
 
@@ -232,6 +251,8 @@ class IdeogramStudio:
             'prompt': ('STRING', {'multiline': True, 'default': ''}),
             # Ideogram 4 is trained only on structured captions; Magic Prompt writes one from plain text.
             'magic_prompt': ('BOOLEAN', {'default': True}),
+            # The enhancer volunteers in-image text; most prompts do not want any.
+            'text_in_image': ('BOOLEAN', {'default': False}),
             'mode': (['base', 'distilled'],),
             'sampler_preset': (['4.0 Default 20', '4.0 Quality 48', '4.0 Turbo 12', 'custom'],),
             'width': ('INT', {'default': 1280, 'min': 256, 'max': 2048, 'step': 16}),
@@ -244,11 +265,11 @@ class IdeogramStudio:
             'schedule_mu': ('FLOAT', {'default': 0.0, 'min': -5.0, 'max': 5.0}),
             'schedule_std': ('FLOAT', {'default': 1.75, 'min': 0.1, 'max': 5.0}),
             'max_text_tokens': ('INT', {'default': 1024, 'min': 256, 'max': 2048, 'step': 128}),
-            'edit_strength': ('FLOAT', {'default': 0.5, 'min': 0.0, 'max': 1.0, 'step': 0.05}),
+            'image_strength': ('FLOAT', {'default': 0.5, 'min': 0.0, 'max': 1.0, 'step': 0.05}),
         }, 'optional': {'caption': ('STRING', {'forceInput': True}), 'reference_image': ('IMAGE',)}}
 
-    def generate(self, prompt, magic_prompt, mode, sampler_preset, width, height, seed, steps, guidance, sampler,
-                 noise_multiplier, schedule_mu, schedule_std, max_text_tokens, edit_strength=0.5,
+    def generate(self, prompt, magic_prompt, text_in_image, mode, sampler_preset, width, height, seed, steps, guidance, sampler,
+                 noise_multiplier, schedule_mu, schedule_std, max_text_tokens, image_strength=0.5,
                  caption=None, reference_image=None):
         if caption is not None and caption.strip():
             # An advanced graph supplied a structured caption, so send it through unchanged.
@@ -290,6 +311,11 @@ class IdeogramStudio:
                       'plain-prompt wrapper. Use the advanced caption workflow for full control.'
                       % (written[:200],), flush=True)
                 written = wrap_plain_prompt(text)
+            if not text_in_image:
+                written, dropped = strip_text_elements(written)
+                if dropped:
+                    print('[prompt] Removed %d text element(s) the enhancer added; '
+                          'switch text_in_image on to keep lettering.' % dropped, flush=True)
             text, upsample = written, False
         from diffusers import FlowMatchEulerDiscreteScheduler
         from diffusers.schedulers.scheduling_utils import SchedulerOutput
@@ -299,7 +325,7 @@ class IdeogramStudio:
             import torch.nn.functional as F
             pixels = reference_image[:1, :, :, :3].movedim(-1, 1).to('cuda')
             pixels = F.interpolate(pixels, size=(height, width), mode='bicubic', align_corners=False).clamp(0, 1)
-            if edit_strength == 0:
+            if image_strength == 0:
                 return (pixels.movedim(1, -1).cpu(), text)
             with torch.inference_mode():
                 encoded = pipe.vae.encode((pixels * 2 - 1).to(pipe.vae.dtype), return_dict=False)[0].mode()
@@ -314,7 +340,7 @@ class IdeogramStudio:
             def set_timesteps(self, *args, **kwargs):
                 super().set_timesteps(*args, **kwargs)
                 if image_latent is not None:
-                    skip = min(len(self.timesteps) - 1, int(len(self.timesteps) * (1.0 - edit_strength)))
+                    skip = min(len(self.timesteps) - 1, int(len(self.timesteps) * (1.0 - image_strength)))
                     self.timesteps = self.timesteps[skip:]
                     self.sigmas = self.sigmas[skip:]
                     self.num_inference_steps = len(self.timesteps)
