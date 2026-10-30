@@ -175,10 +175,16 @@ def load_pipeline(mode):
     _PIPE = None
     gc.collect()
     torch.cuda.empty_cache()
-    from diffusers import Ideogram4Pipeline, Ideogram4Transformer2DModel
+    from diffusers import Ideogram4Pipeline, Ideogram4PromptEnhancerHead, Ideogram4Transformer2DModel
     root = Path('/workspace/ComfyUI/models/ideogram')
+    # Magic Prompt's generative head grafts onto the shared text encoder, so it costs no extra encoder.
+    enhancer = None
+    if (root / 'prompt_enhancer').exists():
+        enhancer = Ideogram4PromptEnhancerHead.from_pretrained(str(root / 'prompt_enhancer'),
+                                                               torch_dtype=torch.bfloat16, local_files_only=True)
     if mode == 'base':
-        pipe = Ideogram4Pipeline.from_pretrained(str(root / 'base'), torch_dtype=torch.bfloat16, local_files_only=True)
+        pipe = Ideogram4Pipeline.from_pretrained(str(root / 'base'), torch_dtype=torch.bfloat16,
+                                                 prompt_enhancer_head=enhancer, local_files_only=True)
     else:
         transformer = Ideogram4Transformer2DModel.from_pretrained(str(root / 'distilled'), subfolder='transformer', torch_dtype=torch.bfloat16, local_files_only=True)
         class ZeroUnconditional(torch.nn.Module):
@@ -189,7 +195,8 @@ def load_pipeline(mode):
             def dtype(self): return self._anchor.dtype
             def forward(self, *, hidden_states, **kwargs): return (torch.zeros_like(hidden_states),)
         pipe = Ideogram4Pipeline.from_pretrained(str(root / 'base'), transformer=transformer,
-                    unconditional_transformer=None, torch_dtype=torch.bfloat16, local_files_only=True)
+                    unconditional_transformer=None, torch_dtype=torch.bfloat16,
+                    prompt_enhancer_head=enhancer, local_files_only=True)
         pipe.register_modules(unconditional_transformer=ZeroUnconditional())
     pipe.to('cuda')
     _PIPE, _MODE = pipe, mode
@@ -204,7 +211,9 @@ class IdeogramStudio:
     @classmethod
     def INPUT_TYPES(cls):
         return {'required': {
-            'caption': ('STRING', {'forceInput': True}),
+            'prompt': ('STRING', {'multiline': True, 'default': ''}),
+            # Ideogram 4 is trained only on structured captions; Magic Prompt writes one from plain text.
+            'magic_prompt': ('BOOLEAN', {'default': True}),
             'mode': (['base', 'distilled'],),
             'sampler_preset': (['4.0 Default 20', '4.0 Quality 48', '4.0 Turbo 12', 'custom'],),
             'width': ('INT', {'default': 1280, 'min': 256, 'max': 2048, 'step': 16}),
@@ -218,11 +227,19 @@ class IdeogramStudio:
             'schedule_std': ('FLOAT', {'default': 1.75, 'min': 0.1, 'max': 5.0}),
             'max_text_tokens': ('INT', {'default': 1024, 'min': 256, 'max': 2048, 'step': 128}),
             'edit_strength': ('FLOAT', {'default': 0.5, 'min': 0.0, 'max': 1.0, 'step': 0.05}),
-        }, 'optional': {'reference_image': ('IMAGE',)}}
+        }, 'optional': {'caption': ('STRING', {'forceInput': True}), 'reference_image': ('IMAGE',)}}
 
-    def generate(self, caption, mode, sampler_preset, width, height, seed, steps, guidance, sampler,
-                 noise_multiplier, schedule_mu, schedule_std, max_text_tokens, edit_strength=0.5, reference_image=None):
-        json.loads(caption)
+    def generate(self, prompt, magic_prompt, mode, sampler_preset, width, height, seed, steps, guidance, sampler,
+                 noise_multiplier, schedule_mu, schedule_std, max_text_tokens, edit_strength=0.5,
+                 caption=None, reference_image=None):
+        if caption is not None and caption.strip():
+            # An advanced graph supplied a structured caption, so send it through unchanged.
+            json.loads(caption)
+            text, upsample = caption, False
+        else:
+            if not prompt.strip():
+                raise ValueError('Type a prompt, or connect a structured caption to the caption input')
+            text, upsample = prompt.strip(), magic_prompt
         preset = PRESETS.get(sampler_preset) if mode == 'base' else None
         if preset:
             # The schedule's length must match the step count, so the preset owns both.
@@ -283,9 +300,10 @@ class IdeogramStudio:
         pipe.prepare_latents = scaled_latents
         try:
             with torch.inference_mode():
-                image = pipe(caption, width=width, height=height, num_inference_steps=steps,
+                image = pipe(text, width=width, height=height, num_inference_steps=steps,
                     mu=schedule_mu, std=schedule_std, **guidance_args,
-                    max_sequence_length=max_text_tokens, generator=generator, prompt_upsampling=False).images[0]
+                    max_sequence_length=max_text_tokens, generator=generator,
+                    prompt_upsampling=upsample).images[0]
         finally:
             pipe.prepare_latents = original
         return (torch.from_numpy(np.asarray(image).astype(np.float32) / 255.0).unsqueeze(0),)

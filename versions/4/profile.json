@@ -15,6 +15,11 @@
       "repo": "fal/ideogram-v4-instant",
       "revision": "d47b425d7ee14f5add208adeab68e7dbfc18cf51",
       "directory": "distilled"
+    },
+    {
+      "repo": "diffusers/qwen3-vl-8b-instruct-lm-head",
+      "revision": "9728767e1d4037dd9e921980b1aaa96423419b1c",
+      "directory": "prompt_enhancer"
     }
   ]
 }

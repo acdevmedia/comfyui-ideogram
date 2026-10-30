@@ -22,26 +22,31 @@ Storage is temporary. The template does not attach a network volume. First-boot 
 
 ## Simple workflows
 
-- **01 Base Text to Image:** the official quantized NF4 conditional and unconditional branches, running the official **4.0 Default 20** preset.
+- **01 Base Text to Image:** a plain prompt, Magic Prompt on, running the official **4.0 Default 20** preset against the quantized NF4 conditional and unconditional branches.
 - **03–04 Image Edit / Variation:** upload a picture and describe the desired final image; adjust edit strength to preserve more or less of the source.
 - **02 Distilled Text to Image:** fal Instant's BF16, eight-step, single-branch checkpoint; guidance must remain 1.0. Distillation does not mean NF4/FP8 quantization.
 
-The prompt panel builds the structured JSON caption Ideogram 4 was trained on, in the exact key order its caption verifier expects. Every field is empty by default, so nothing reaches your caption that you did not type.
+Type a plain-English prompt and press Queue. **Magic Prompt** is on by default: Ideogram's own prompt enhancer rewrites your sentence into the structured JSON caption the model was trained on, including bounding-box layout, and generation is schema-constrained so the caption is always valid. Nothing else is required, and no JSON is involved.
 
-- **scene** → `high_level_description`, a one or two sentence summary. Required.
-- **background** → the environment. Required by the schema, and it must describe the setting rather than repeat the subject.
-- **elements** → one element per line. A bare line is an object with no box; otherwise use pipe-separated fields:
+Magic Prompt runs locally through a 1.2 GB generative head grafted onto the text encoder that is already loaded, so it adds no second model and makes no API call. It is reproducible from the seed. Turning it off sends your text to the model unchanged, which the model's authors advise against because it was trained only on structured captions.
+
+### Advanced: writing the caption yourself
+
+**10 Advanced Structured Caption** adds the caption builder for anyone who wants explicit control, and the simple workflows never show it. It emits the published schema in the exact key order the upstream caption verifier checks, and exposes:
+
+- **scene** → `high_level_description`; **background** → the environment, required by the schema.
+- **elements** → one per line. A bare line is an object with no box; otherwise pipe-separated:
 
   ```
-  obj  | y_min,x_min,y_max,x_max | description                       | #HEX,#HEX
-  text | y_min,x_min,y_max,x_max | THE LITERAL WORDS | description   | #HEX,#HEX
+  obj  | y_min,x_min,y_max,x_max | description                     | #HEX,#HEX
+  text | y_min,x_min,y_max,x_max | THE WORDS | description         | #HEX,#HEX
   ```
 
-  The bounding box is `[y_min, x_min, y_max, x_max]` in **normalized 0–1000** coordinates with the origin at the top left, independent of the canvas size. Use `-` to omit a box. The trailing palette is optional, up to 5 colors per element. **Bounding boxes are the single most effective control in this model** — name every object explicitly and give the important ones a box.
-- **aesthetics**, **lighting**, **medium**, **photo_or_art_style**, **color_palette** → `style_description`. Supply medium, aesthetics and lighting together or leave the whole group empty; the builder orders the keys correctly for photographic and non-photographic captions, which differ. Palette entries are uppercased to `#RRGGBB`, up to 16.
-- **raw_json** → paste a complete caption to bypass the builder entirely.
+  Boxes are `[y_min, x_min, y_max, x_max]` in **normalized 0–1000** coordinates from the top left, independent of canvas size. Use `-` to omit one.
+- **aesthetics**, **lighting**, **medium**, **photo_or_art_style**, **color_palette** → `style_description`, supplied together or left entirely empty.
+- **raw_json** → paste a complete caption and bypass the builder.
 
-Malformed boxes, palettes and partial style groups are rejected before anything reaches the GPU. Captions serialize with compact separators and literal non-ASCII characters, as the schema requires. Schema reference: [Ideogram 4 prompting guide](https://github.com/ideogram-oss/ideogram-4/blob/main/docs/prompting.md).
+Malformed boxes, palettes and partial style groups are rejected locally, before anything reaches a paid GPU. Schema reference: [Ideogram 4 prompting guide](https://github.com/ideogram-oss/ideogram-4/blob/main/docs/prompting.md).
 
 The settings panel exposes a sampler preset, dimensions, seed, steps, guidance, sampler, initial-noise multiplier, schedule mean/spread and text token limit. Canvas defaults to **1280 × 720**.
 

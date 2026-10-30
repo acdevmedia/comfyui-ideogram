@@ -3,46 +3,6 @@
   "last_link_id": 3,
   "nodes": [
     {
-      "id": 1,
-      "type": "AcdevIdeogramPrompt",
-      "pos": [
-        640,
-        40
-      ],
-      "size": [
-        530,
-        730
-      ],
-      "flags": {},
-      "order": 1,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "structured_caption",
-          "type": "STRING",
-          "links": [
-            1
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "AcdevIdeogramPrompt"
-      },
-      "widgets_values": [
-        "A witty editorial poster of a red fox reading a newspaper at a Paris cafe table.",
-        "A quiet Paris cafe terrace with flower boxes, bistro chairs and warm golden afternoon light.",
-        "obj | 250,300,850,760 | A red fox in a bow tie sitting upright on a bistro chair, holding an open broadsheet newspaper in both paws.\nobj | 520,180,880,520 | A round marble cafe table with an espresso cup, saucer and two sugar cubes.\ntext | 60,120,190,880 | THE DAILY FOX | Bold dark-brown serif masthead across the top of the poster.",
-        "witty, warm, editorial, crisp detail",
-        "late afternoon golden hour, soft directional light",
-        "illustration",
-        "detailed ink linework with watercolour washes",
-        "#F4E3C1, #C7502A, #3E2B20, #8FA98B",
-        ""
-      ],
-      "title": "1. Scene, lettering and layout"
-    },
-    {
       "id": 2,
       "type": "AcdevIdeogramStudio",
       "pos": [
@@ -60,7 +20,7 @@
         {
           "name": "caption",
           "type": "STRING",
-          "link": 1
+          "link": null
         },
         {
           "name": "reference_image",
@@ -81,7 +41,8 @@
         "Node name for S&R": "AcdevIdeogramStudio"
       },
       "widgets_values": [
-        "distilled",
+        "Change the scene to a rainy evening with warm window light and wet cobblestones, keeping the subject.",
+        true,
         "custom",
         1280,
         720,
@@ -167,14 +128,6 @@
     }
   ],
   "links": [
-    [
-      1,
-      1,
-      0,
-      2,
-      0,
-      "STRING"
-    ],
     [
       2,
       2,

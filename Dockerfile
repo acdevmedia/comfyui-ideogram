@@ -5,7 +5,7 @@ RUN python3 -m pip install --no-cache-dir --upgrade --index-url https://download
     'torch==2.11.0+cu128' 'torchvision==0.26.0+cu128' 'torchaudio==2.11.0+cu128'
 RUN mkdir -p /opt/acdev/ComfyUI && curl -fsSL https://github.com/Comfy-Org/ComfyUI/archive/b5a432157de6b8884f81104cd02926adf4d597e4.tar.gz | tar xz --strip-components=1 -C /opt/acdev/ComfyUI
 RUN python3 -m pip install --no-cache-dir -r /opt/acdev/ComfyUI/requirements.txt \
-    'huggingface_hub==2.3.0' 'transformers==5.21.0' 'diffusers==0.42.0' 'accelerate==1.13.0' 'bitsandbytes==0.49.2'
+    'huggingface_hub==2.3.0' 'transformers==5.21.0' 'diffusers==0.42.0' 'accelerate==1.13.0' 'bitsandbytes==0.49.2' 'outlines==1.4.0'
 COPY custom_nodes/acdev_studio /opt/acdev/ComfyUI/custom_nodes/acdev_studio
 COPY scripts /opt/acdev/scripts
 COPY config /opt/acdev/config

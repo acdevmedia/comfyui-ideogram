@@ -1,0 +1,50 @@
+{
+  "1": {
+    "class_type": "AcdevIdeogramPrompt",
+    "inputs": {
+      "scene": "A witty editorial poster of a red fox reading a newspaper at a Paris cafe table.",
+      "background": "A quiet Paris cafe terrace with flower boxes, bistro chairs and warm golden afternoon light.",
+      "elements": "obj | 250,300,850,760 | A red fox in a bow tie sitting upright on a bistro chair, holding an open broadsheet newspaper in both paws.\nobj | 520,180,880,520 | A round marble cafe table with an espresso cup, saucer and two sugar cubes.\ntext | 60,120,190,880 | THE DAILY FOX | Bold dark-brown serif masthead across the top of the poster.",
+      "aesthetics": "witty, warm, editorial, crisp detail",
+      "lighting": "late afternoon golden hour, soft directional light",
+      "medium": "illustration",
+      "photo_or_art_style": "detailed ink linework with watercolour washes",
+      "color_palette": "#F4E3C1, #C7502A, #3E2B20, #8FA98B",
+      "raw_json": ""
+    }
+  },
+  "2": {
+    "class_type": "AcdevIdeogramStudio",
+    "inputs": {
+      "prompt": "",
+      "magic_prompt": false,
+      "mode": "base",
+      "sampler_preset": "4.0 Default 20",
+      "width": 1280,
+      "height": 720,
+      "seed": 42,
+      "steps": 20,
+      "guidance": 7.0,
+      "sampler": "euler",
+      "noise_multiplier": 1.0,
+      "schedule_mu": 0.0,
+      "schedule_std": 1.75,
+      "max_text_tokens": 1024,
+      "edit_strength": 0.5,
+      "caption": [
+        "1",
+        0
+      ]
+    }
+  },
+  "3": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "2",
+        0
+      ],
+      "filename_prefix": "Ideogram4/advanced"
+    }
+  }
+}
