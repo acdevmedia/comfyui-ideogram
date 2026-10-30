@@ -17,6 +17,90 @@ PRESETS = {
 }
 
 
+MEDIUMS = ['photograph', 'illustration', '3d_render', 'painting', 'graphic_design']
+
+
+def parse_palette(raw, limit):
+    """Uppercase #RRGGBB entries, as the caption verifier expects."""
+    colors = []
+    for chunk in raw.replace(',', ' ').split():
+        value = chunk.strip().upper()
+        if not value:
+            continue
+        if not value.startswith('#'):
+            value = '#' + value
+        if len(value) != 7 or any(c not in '0123456789ABCDEF' for c in value[1:]):
+            raise ValueError('Palette colors must be #RRGGBB, got %r' % chunk)
+        colors.append(value)
+    if len(colors) > limit:
+        raise ValueError('At most %d palette colors here, got %d' % (limit, len(colors)))
+    return colors
+
+
+def parse_bbox(raw):
+    """[y_min, x_min, y_max, x_max] in normalized 0-1000 coordinates, origin top-left."""
+    raw = raw.strip()
+    if not raw or raw == '-':
+        return None
+    parts = [p for p in raw.replace(',', ' ').split() if p]
+    if len(parts) != 4:
+        raise ValueError('A bbox needs 4 numbers (y_min x_min y_max x_max), got %r' % raw)
+    try:
+        box = [int(round(float(p))) for p in parts]
+    except ValueError:
+        raise ValueError('Bbox values must be numbers, got %r' % raw)
+    if any(v < 0 or v > 1000 for v in box):
+        raise ValueError('Bbox values are 0-1000 normalized coordinates, got %r' % raw)
+    if box[0] >= box[2] or box[1] >= box[3]:
+        raise ValueError('Bbox must be y_min x_min y_max x_max with y_min<y_max and x_min<x_max, got %r' % raw)
+    return box
+
+
+def parse_elements(raw):
+    """One element per line. Bare text is an object; otherwise pipe-separated fields:
+
+    obj  | y,x,y,x | description
+    text | y,x,y,x | THE WORDS | description
+    """
+    elements = []
+    for number, line in enumerate(raw.splitlines(), 1):
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        try:
+            if '|' not in line:
+                elements.append({'type': 'obj', 'desc': line})
+                continue
+            fields = [f.strip() for f in line.split('|')]
+            kind = fields[0].lower()
+            if kind not in ('obj', 'text'):
+                raise ValueError('Element type must be obj or text, got %r' % fields[0])
+            wanted = 4 if kind == 'text' else 3
+            if len(fields) == wanted + 1:
+                palette = parse_palette(fields[-1], 5)
+                fields = fields[:-1]
+            else:
+                palette = []
+            if len(fields) != wanted:
+                raise ValueError('A %s element needs %d fields separated by |' % (kind, wanted))
+            bbox = parse_bbox(fields[1])
+            # Key order is part of the trained format, so build each dict in order.
+            element = {'type': kind}
+            if bbox:
+                element['bbox'] = bbox
+            if kind == 'text':
+                element['text'] = fields[2]
+                element['desc'] = fields[3]
+            else:
+                element['desc'] = fields[2]
+            if palette:
+                element['color_palette'] = palette
+            elements.append(element)
+        except ValueError as exc:
+            raise ValueError('Element line %d: %s' % (number, exc))
+    return elements
+
+
 class PromptBuilder:
     CATEGORY = 'ACDEV/Ideogram 4'
     RETURN_TYPES = ('STRING',)
@@ -27,34 +111,58 @@ class PromptBuilder:
     def INPUT_TYPES(cls):
         return {'required': {
             'scene': ('STRING', {'multiline': True, 'default': ''}),
-            'style': ('STRING', {'default': ''}),
-            'text_in_image': ('STRING', {'default': ''}),
-            'background': ('STRING', {'default': ''}),
-            'layout': ('STRING', {'multiline': True, 'default': ''}),
+            'background': ('STRING', {'multiline': True, 'default': ''}),
+            'elements': ('STRING', {'multiline': True, 'default': ''}),
+            'aesthetics': ('STRING', {'default': ''}),
+            'lighting': ('STRING', {'default': ''}),
+            'medium': ([''] + MEDIUMS,),
+            'photo_or_art_style': ('STRING', {'default': ''}),
+            'color_palette': ('STRING', {'default': ''}),
             'raw_json': ('STRING', {'multiline': True, 'default': ''}),
         }}
 
-    def build(self, scene, style, text_in_image, background, layout, raw_json):
+    def build(self, scene, background, elements, aesthetics, lighting, medium,
+              photo_or_art_style, color_palette, raw_json):
         if raw_json.strip():
             data = json.loads(raw_json)
-            if not isinstance(data, dict) or 'high_level_description' not in data:
-                raise ValueError('Structured captions require a JSON object with high_level_description')
-        else:
-            if not scene.strip():
-                raise ValueError('Describe the scene, or paste a full structured caption into raw_json')
-            elements = [{'type': 'object', 'desc': scene}]
-            if text_in_image.strip():
-                lettering = 'Clear, accurately spelled lettering.'
-                elements.append({'type': 'text', 'text': text_in_image,
-                                 'desc': (lettering + ' ' + layout).strip() if layout.strip() else lettering})
-            composition = {'elements': elements}
-            if background.strip():
-                composition['background'] = background
-            data = {'high_level_description': (scene + ' ' + layout).strip() if layout.strip() else scene.strip(),
-                    'compositional_deconstruction': composition}
-            if style.strip():
-                data['style'] = {'description': style}
-        return (json.dumps(data, ensure_ascii=False),)
+            if not isinstance(data, dict) or 'compositional_deconstruction' not in data:
+                raise ValueError('A structured caption needs a compositional_deconstruction object')
+            return (json.dumps(data, ensure_ascii=False, separators=(',', ':')),)
+
+        if not scene.strip():
+            raise ValueError('Describe the scene, or paste a full structured caption into raw_json')
+        if not background.strip():
+            raise ValueError('Describe the background; the caption schema requires it')
+
+        parsed = parse_elements(elements)
+        if not parsed:
+            raise ValueError('List at least one element, one per line (see the node tooltip or README)')
+
+        # Top-level order: high_level_description, style_description, compositional_deconstruction.
+        data = {'high_level_description': scene.strip()}
+
+        if medium or aesthetics.strip() or lighting.strip() or photo_or_art_style.strip():
+            if not (medium and aesthetics.strip() and lighting.strip()):
+                raise ValueError('A style needs medium, aesthetics and lighting together, or leave all style fields empty')
+            palette = parse_palette(color_palette, 16)
+            style = {'aesthetics': aesthetics.strip(), 'lighting': lighting.strip()}
+            # Photo captions order the camera description before the medium; art styles after it.
+            if medium == 'photograph':
+                if photo_or_art_style.strip():
+                    style['photo'] = photo_or_art_style.strip()
+                style['medium'] = medium
+            else:
+                style['medium'] = medium
+                if photo_or_art_style.strip():
+                    style['art_style'] = photo_or_art_style.strip()
+            if palette:
+                style['color_palette'] = palette
+            data['style_description'] = style
+        elif color_palette.strip():
+            raise ValueError('A color palette belongs to a style; set medium, aesthetics and lighting too')
+
+        data['compositional_deconstruction'] = {'background': background.strip(), 'elements': parsed}
+        return (json.dumps(data, ensure_ascii=False, separators=(',', ':')),)
 
 
 def load_pipeline(mode):
