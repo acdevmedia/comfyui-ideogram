@@ -31,5 +31,14 @@
       ],
       "filename_prefix": "Ideogram4/base"
     }
+  },
+  "4": {
+    "class_type": "PreviewAny",
+    "inputs": {
+      "source": [
+        "2",
+        1
+      ]
+    }
   }
 }

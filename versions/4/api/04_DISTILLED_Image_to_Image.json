@@ -41,5 +41,14 @@
     "inputs": {
       "image": "upload_your_image.png"
     }
+  },
+  "11": {
+    "class_type": "PreviewAny",
+    "inputs": {
+      "source": [
+        "2",
+        1
+      ]
+    }
   }
 }

@@ -1,6 +1,6 @@
 {
-  "last_node_id": 3,
-  "last_link_id": 2,
+  "last_node_id": 4,
+  "last_link_id": 3,
   "nodes": [
     {
       "id": 2,
@@ -25,10 +25,17 @@
       ],
       "outputs": [
         {
-          "name": "IMAGE",
+          "name": "image",
           "type": "IMAGE",
           "links": [
             2
+          ]
+        },
+        {
+          "name": "caption_used",
+          "type": "STRING",
+          "links": [
+            3
           ]
         }
       ],
@@ -87,6 +94,34 @@
         "Ideogram4/base"
       ],
       "title": "3. Preview and save"
+    },
+    {
+      "id": 4,
+      "type": "PreviewAny",
+      "pos": [
+        650,
+        660
+      ],
+      "size": [
+        420,
+        180
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "source",
+          "type": "*",
+          "link": 3
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "PreviewAny"
+      },
+      "widgets_values": [],
+      "title": "Caption sent to the model"
     }
   ],
   "links": [
@@ -97,6 +132,14 @@
       3,
       0,
       "IMAGE"
+    ],
+    [
+      3,
+      2,
+      1,
+      4,
+      0,
+      "*"
     ]
   ],
   "groups": [],

@@ -49,5 +49,14 @@
       ],
       "filename_prefix": "Ideogram4/advanced"
     }
+  },
+  "4": {
+    "class_type": "PreviewAny",
+    "inputs": {
+      "source": [
+        "2",
+        1
+      ]
+    }
   }
 }

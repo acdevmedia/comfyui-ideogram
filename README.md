@@ -27,7 +27,7 @@ Ideogram 4 is trained **exclusively** on structured JSON captions, so a bare sen
 
 **Leave Magic Prompt on.** Without it the model receives something close to plain text, which gives poor adherence and, in our testing, more spurious safety-filter refusals — on one prompt with identical settings, the enhancer produced an image while the un-enhanced path returned the filter's placeholder card. If you do turn it off, the node still wraps your sentence in a minimal valid caption rather than sending raw text. If the enhancer ever returns something unusable, the node logs what came back and falls back to that wrapper instead of rendering a blank frame.
 
-The caption actually used is the node's second output, so you can always see what the model was given.
+Every packaged workflow shows the caption actually sent to the model in a **Caption sent to the model** panel below the settings, so you can see what the enhancer wrote, what your overrides changed, and whether a disappointing image came from the prompt or the sampler.
 
 ### Caption overrides
 

@@ -1,6 +1,6 @@
 {
-  "last_node_id": 10,
-  "last_link_id": 3,
+  "last_node_id": 11,
+  "last_link_id": 4,
   "nodes": [
     {
       "id": 2,
@@ -30,10 +30,17 @@
       ],
       "outputs": [
         {
-          "name": "IMAGE",
+          "name": "image",
           "type": "IMAGE",
           "links": [
             2
+          ]
+        },
+        {
+          "name": "caption_used",
+          "type": "STRING",
+          "links": [
+            4
           ]
         }
       ],
@@ -130,6 +137,34 @@
         "image"
       ],
       "title": "Upload reference image"
+    },
+    {
+      "id": 11,
+      "type": "PreviewAny",
+      "pos": [
+        1250,
+        660
+      ],
+      "size": [
+        420,
+        180
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "source",
+          "type": "*",
+          "link": 4
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "PreviewAny"
+      },
+      "widgets_values": [],
+      "title": "Caption sent to the model"
     }
   ],
   "links": [
@@ -148,6 +183,14 @@
       2,
       1,
       "IMAGE"
+    ],
+    [
+      4,
+      2,
+      1,
+      11,
+      0,
+      "*"
     ]
   ],
   "groups": [],
