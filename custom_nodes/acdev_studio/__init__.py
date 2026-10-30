@@ -205,7 +205,8 @@ def load_pipeline(mode):
 
 class IdeogramStudio:
     CATEGORY = 'ACDEV/Ideogram 4'
-    RETURN_TYPES = ('IMAGE',)
+    RETURN_TYPES = ('IMAGE', 'STRING')
+    RETURN_NAMES = ('image', 'caption_used')
     FUNCTION = 'generate'
 
     @classmethod
@@ -250,6 +251,25 @@ class IdeogramStudio:
                 raise ValueError('The distilled single-branch checkpoint requires guidance=1.0')
             guidance_args = {'guidance_scale': guidance, 'guidance_schedule': None}
         pipe = load_pipeline(mode)
+        if upsample:
+            # Run the enhancer ourselves rather than inside the call, so an empty or malformed
+            # caption fails loudly here instead of silently rendering a blank frame.
+            if getattr(pipe, 'prompt_enhancer_head', None) is None:
+                raise ValueError('Magic Prompt needs the prompt_enhancer model; it is missing from this Pod. '
+                                 'Switch magic_prompt off, or redeploy so first boot downloads it.')
+            written = pipe.upsample_prompt(text, height=height, width=width,
+                                           max_new_tokens=max_text_tokens,
+                                           generator=torch.Generator(device='cuda').manual_seed(seed),
+                                           device=pipe.device)
+            written = written[0] if isinstance(written, (list, tuple)) else written
+            try:
+                parsed = json.loads(written)
+                assert isinstance(parsed, dict) and parsed.get('compositional_deconstruction')
+            except Exception:
+                raise ValueError('Magic Prompt did not return a usable caption for this prompt. '
+                                 'Rephrase it, or switch magic_prompt off and use the advanced '
+                                 'caption workflow. Returned: %r' % (written[:300],))
+            text, upsample = written, False
         from diffusers import FlowMatchEulerDiscreteScheduler
         from diffusers.schedulers.scheduling_utils import SchedulerOutput
         generator = torch.Generator(device='cuda').manual_seed(seed)
@@ -259,7 +279,7 @@ class IdeogramStudio:
             pixels = reference_image[:1, :, :, :3].movedim(-1, 1).to('cuda')
             pixels = F.interpolate(pixels, size=(height, width), mode='bicubic', align_corners=False).clamp(0, 1)
             if edit_strength == 0:
-                return (pixels.movedim(1, -1).cpu(),)
+                return (pixels.movedim(1, -1).cpu(), text)
             with torch.inference_mode():
                 encoded = pipe.vae.encode((pixels * 2 - 1).to(pipe.vae.dtype), return_dict=False)[0].mode()
                 batch, channels, latent_h, latent_w = encoded.shape
@@ -306,7 +326,7 @@ class IdeogramStudio:
                     prompt_upsampling=upsample).images[0]
         finally:
             pipe.prepare_latents = original
-        return (torch.from_numpy(np.asarray(image).astype(np.float32) / 255.0).unsqueeze(0),)
+        return (torch.from_numpy(np.asarray(image).astype(np.float32) / 255.0).unsqueeze(0), text)
 
 
 NODE_CLASS_MAPPINGS = {'AcdevIdeogramPrompt': PromptBuilder, 'AcdevIdeogramStudio': IdeogramStudio}

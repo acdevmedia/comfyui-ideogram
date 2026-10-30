@@ -30,3 +30,23 @@ The ComfyUI origin-guard patch is applied during the image build, and the build 
 ## Harness notes
 
 Remote validation is opt-in through the `gpu_smoke` dispatch input; ordinary pushes build and run CPU checks only. `scripts/test-runpod.py --keep` leaves the Pod running for manual inspection, `--pod <id>` re-runs the matrix against a running Pod, and `--cleanup` deletes it. Pod reuse randomises seeds, because ComfyUI returns cached outputs in milliseconds for an identical prompt and seed, which would otherwise look like a passing run that never executed.
+
+## Open defect — Magic Prompt renders blank (2026-10-30)
+
+On image digest `sha256:9eaf9523d4ef82d05e6b0510707c3e87f42c583d7b6eddc993adc39c095a925d`, the
+default workflow **01 Base Text to Image** (plain prompt, `magic_prompt` on) produced a near-white
+frame and failed the blank-output check. **10 Advanced Structured Caption** passed on the same Pod
+in the same run, at 31.04 s with entropy 8.44, using the same sampler, preset and noise settings.
+The only difference between them is Magic Prompt, so the enhancer path is the fault, not sampling.
+
+The output is near-white rather than the mid-grey "Image blocked by safety filter" card, so this is
+a failed generation, not a refusal. The most likely cause is the enhancer returning an empty or
+malformed caption that is then encoded as near-empty conditioning.
+
+The node now runs `upsample_prompt` explicitly, validates that the result parses as a caption with a
+`compositional_deconstruction`, and raises a readable error naming the returned text when it does
+not. It also returns the caption actually used as a second output, so the enhancer's work is
+visible. That converts a silent blank render into a diagnosable failure, but it does not yet fix the
+underlying cause, which needs a GPU Pod to investigate.
+
+Until this is resolved, the dependable Ideogram path is **10 Advanced Structured Caption**.
