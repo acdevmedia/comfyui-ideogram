@@ -8,6 +8,14 @@ import torch
 _PIPE = None
 _MODE = None
 
+# Official Ideogram 4 presets. The guidance schedule's final low-guidance entries are the
+# documented "polish" steps; a constant guidance_scale replaces the whole schedule.
+PRESETS = {
+    '4.0 Default 20': {'steps': 20, 'schedule': (7.0,) * 18 + (3.0,) * 2, 'mu': 0.0, 'std': 1.75},
+    '4.0 Quality 48': {'steps': 48, 'schedule': (7.0,) * 45 + (3.0,) * 3, 'mu': 0.0, 'std': 1.5},
+    '4.0 Turbo 12': {'steps': 12, 'schedule': (7.0,) * 11 + (3.0,) * 1, 'mu': 0.5, 'std': 1.75},
+}
+
 
 class PromptBuilder:
     CATEGORY = 'ACDEV/Ideogram 4'
@@ -18,11 +26,11 @@ class PromptBuilder:
     @classmethod
     def INPUT_TYPES(cls):
         return {'required': {
-            'scene': ('STRING', {'multiline': True, 'default': 'A charming illustrated fox reads a newspaper at a Paris cafe. Warm late-afternoon light, detailed ink linework.'}),
-            'style': ('STRING', {'default': 'Editorial illustration, warm color palette, crisp details'}),
-            'text_in_image': ('STRING', {'default': 'THE DAILY FOX'}),
-            'background': ('STRING', {'default': 'A quiet cafe terrace with flowers and soft golden light'}),
-            'layout': ('STRING', {'multiline': True, 'default': 'Subject in the center. Clear readable headline above the subject. Generous negative space.'}),
+            'scene': ('STRING', {'multiline': True, 'default': ''}),
+            'style': ('STRING', {'default': ''}),
+            'text_in_image': ('STRING', {'default': ''}),
+            'background': ('STRING', {'default': ''}),
+            'layout': ('STRING', {'multiline': True, 'default': ''}),
             'raw_json': ('STRING', {'multiline': True, 'default': ''}),
         }}
 
@@ -32,12 +40,20 @@ class PromptBuilder:
             if not isinstance(data, dict) or 'high_level_description' not in data:
                 raise ValueError('Structured captions require a JSON object with high_level_description')
         else:
+            if not scene.strip():
+                raise ValueError('Describe the scene, or paste a full structured caption into raw_json')
             elements = [{'type': 'object', 'desc': scene}]
             if text_in_image.strip():
-                elements.append({'type': 'text', 'text': text_in_image, 'desc': 'Clear, accurately spelled lettering. ' + layout})
-            data = {'high_level_description': scene + ' ' + layout,
-                    'style': {'description': style},
-                    'compositional_deconstruction': {'background': background, 'elements': elements}}
+                lettering = 'Clear, accurately spelled lettering.'
+                elements.append({'type': 'text', 'text': text_in_image,
+                                 'desc': (lettering + ' ' + layout).strip() if layout.strip() else lettering})
+            composition = {'elements': elements}
+            if background.strip():
+                composition['background'] = background
+            data = {'high_level_description': (scene + ' ' + layout).strip() if layout.strip() else scene.strip(),
+                    'compositional_deconstruction': composition}
+            if style.strip():
+                data['style'] = {'description': style}
         return (json.dumps(data, ensure_ascii=False),)
 
 
@@ -82,24 +98,32 @@ class IdeogramStudio:
         return {'required': {
             'caption': ('STRING', {'forceInput': True}),
             'mode': (['base', 'distilled'],),
-            'width': ('INT', {'default': 1024, 'min': 512, 'max': 2048, 'step': 16}),
-            'height': ('INT', {'default': 1024, 'min': 512, 'max': 2048, 'step': 16}),
+            'sampler_preset': (['4.0 Default 20', '4.0 Quality 48', '4.0 Turbo 12', 'custom'],),
+            'width': ('INT', {'default': 1280, 'min': 256, 'max': 2048, 'step': 16}),
+            'height': ('INT', {'default': 720, 'min': 256, 'max': 2048, 'step': 16}),
             'seed': ('INT', {'default': 42, 'min': 0, 'max': 2**63-1, 'control_after_generate': False}),
-            'steps': ('INT', {'default': 48, 'min': 1, 'max': 100}),
+            'steps': ('INT', {'default': 20, 'min': 1, 'max': 100}),
             'guidance': ('FLOAT', {'default': 7.0, 'min': 1.0, 'max': 15.0, 'step': 0.1}),
-            'sampler': (['lcm', 'euler'],),
-            'noise_multiplier': ('FLOAT', {'default': 2.0, 'min': 0.1, 'max': 3.0, 'step': 0.1}),
+            'sampler': (['euler', 'lcm'],),
+            'noise_multiplier': ('FLOAT', {'default': 1.0, 'min': 0.1, 'max': 3.0, 'step': 0.1}),
             'schedule_mu': ('FLOAT', {'default': 0.0, 'min': -5.0, 'max': 5.0}),
             'schedule_std': ('FLOAT', {'default': 1.75, 'min': 0.1, 'max': 5.0}),
             'max_text_tokens': ('INT', {'default': 1024, 'min': 256, 'max': 2048, 'step': 128}),
             'edit_strength': ('FLOAT', {'default': 0.5, 'min': 0.0, 'max': 1.0, 'step': 0.05}),
         }, 'optional': {'reference_image': ('IMAGE',)}}
 
-    def generate(self, caption, mode, width, height, seed, steps, guidance, sampler,
+    def generate(self, caption, mode, sampler_preset, width, height, seed, steps, guidance, sampler,
                  noise_multiplier, schedule_mu, schedule_std, max_text_tokens, edit_strength=0.5, reference_image=None):
         json.loads(caption)
-        if mode == 'distilled' and guidance != 1.0:
-            raise ValueError('The distilled single-branch checkpoint requires guidance=1.0')
+        preset = PRESETS.get(sampler_preset) if mode == 'base' else None
+        if preset:
+            # The schedule's length must match the step count, so the preset owns both.
+            steps, schedule_mu, schedule_std = preset['steps'], preset['mu'], preset['std']
+            guidance_args = {'guidance_scale': None, 'guidance_schedule': list(preset['schedule'])}
+        else:
+            if mode == 'distilled' and guidance != 1.0:
+                raise ValueError('The distilled single-branch checkpoint requires guidance=1.0')
+            guidance_args = {'guidance_scale': guidance, 'guidance_schedule': None}
         pipe = load_pipeline(mode)
         from diffusers import FlowMatchEulerDiscreteScheduler
         from diffusers.schedulers.scheduling_utils import SchedulerOutput
@@ -152,7 +176,7 @@ class IdeogramStudio:
         try:
             with torch.inference_mode():
                 image = pipe(caption, width=width, height=height, num_inference_steps=steps,
-                    guidance_scale=guidance, guidance_schedule=None, mu=schedule_mu, std=schedule_std,
+                    mu=schedule_mu, std=schedule_std, **guidance_args,
                     max_sequence_length=max_text_tokens, generator=generator, prompt_upsampling=False).images[0]
         finally:
             pipe.prepare_latents = original

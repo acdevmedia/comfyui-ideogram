@@ -22,17 +22,36 @@ Storage is temporary. The template does not attach a network volume. First-boot 
 
 ## Simple workflows
 
-- **01 Base Text to Image:** the official quantized NF4 conditional and unconditional branches; 48 steps, guidance 7.0.
+- **01 Base Text to Image:** the official quantized NF4 conditional and unconditional branches, running the official **4.0 Default 20** preset.
 - **03–04 Image Edit / Variation:** upload a picture and describe the desired final image; adjust edit strength to preserve more or less of the source.
 - **02 Distilled Text to Image:** fal Instant's BF16, eight-step, single-branch checkpoint; guidance must remain 1.0. Distillation does not mean NF4/FP8 quantization.
 
-The prompt panel provides scene, visual style, exact text, background and composition. It builds a structured JSON caption locally. Advanced users can paste a complete caption into `raw_json` to control object descriptions, bounding boxes and palettes. No hosted prompt rewriting service or extra API key is needed. Use a detailed scene description; this deterministic builder is not an LLM prompt upsampler.
+The prompt panel provides scene, visual style, exact text, background and composition. Every field except the scene is empty by default, so nothing is added to your caption that you did not type. It builds a structured JSON caption locally. Advanced users can paste a complete caption into `raw_json` to control object descriptions, bounding boxes and palettes. No hosted prompt rewriting service or extra API key is needed. Use a detailed scene description; this deterministic builder is not an LLM prompt upsampler.
 
-The settings panel exposes dimensions, seed, steps, guidance, sampler, initial-noise multiplier, schedule mean/spread and text token limit. The default **noise multiplier is 2.0**, paired with a local flow-compatible **LCM** step implementation. This is an experimental adaptation of the [community noise/LCM approach](https://www.reddit.com/r/StableDiffusion/comments/1tz4fnf/ideogram_4_a_solution_for_removing_the_annoying/), not the exact third-party node chain or a guarantee about filtering or output quality. Use **Euler + noise 1.0** for a reference-style comparison. These controls affect local sampling only; they do not change hosted Ideogram API behavior.
+The settings panel exposes a sampler preset, dimensions, seed, steps, guidance, sampler, initial-noise multiplier, schedule mean/spread and text token limit. Canvas defaults to **1280 × 720**.
+
+**Sampler presets** carry Ideogram's official per-step guidance schedule, whose final low-guidance "polish" steps are part of the schedule rather than an extra stage:
+
+| Preset | Steps | Guidance schedule | mu | std |
+| --- | --- | --- | --- | --- |
+| `4.0 Default 20` (default) | 20 | 18 × 7.0, then 2 × 3.0 | 0.0 | 1.75 |
+| `4.0 Quality 48` | 48 | 45 × 7.0, then 3 × 3.0 | 0.0 | 1.5 |
+| `4.0 Turbo 12` | 12 | 11 × 7.0, then 1 × 3.0 | 0.5 | 1.75 |
+| `custom` | yours | constant `guidance` | yours | yours |
+
+A preset owns its step count, mu and std, because the schedule's length must equal the step count. `custom` applies a constant guidance scale instead, which is what the earlier releases did at every step; that is a deviation from the reference configuration and degrades output noticeably at high step counts.
+
+The **initial-noise multiplier** defaults to **1.0**, the value the flow schedule expects. Raising it starts sampling at a higher variance than training, which is an [experimental community adaptation](https://www.reddit.com/r/StableDiffusion/comments/1tz4fnf/ideogram_4_a_solution_for_removing_the_annoying/) rather than a supported setting, and it visibly degrades structure and text rendering. The `lcm` sampler is likewise experimental and intended for few-step runs; `euler` is the default and matches the reference pipeline. These controls affect local sampling only.
+
+**There is no negative prompt.** Ideogram 4's pipeline takes none: its unconditional branch is built from zeroed inputs rather than from encoded negative text, so there is no channel to put one in. Describe what you do want in the structured caption.
 
 The distilled path uses the [checkpoint author's documented zero-parameter unconditional compatibility module](https://huggingface.co/fal/ideogram-v4-instant), with no effective CFG branch. It is not bit-exact with fal's optimized hosted runtime. Only one pipeline is retained when switching modes. These Diffusers nodes run in the ComfyUI process and use the selected GPU; they do not expose separate ComfyUI model-loader sockets.
 
 Prompt inspiration: [EvoLinkAI's curated examples](https://github.com/EvoLinkAI/awesome-ideogram-4.0-prompts). The packaged demonstration prompt is original. Official model notes: [Ideogram open weights](https://huggingface.co/ideogram-ai), [Ideogram inference code](https://github.com/ideogram-oss/ideogram-4). Check the model agreement for permitted use; the downloadable checkpoints use the Ideogram non-commercial model license.
+
+## Image preview ribbon
+
+A strip of recent output images is pinned along the bottom of the ComfyUI window. It refreshes when a queued graph finishes, collapses to a title bar, and opens any thumbnail full size with a download link. It reads the recent `/history` entries through ComfyUI's own `/view` endpoint and never scans the output directory.
 
 ## Environment variables
 

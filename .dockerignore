@@ -8,6 +8,8 @@
 !config/**
 !custom_nodes/
 !custom_nodes/**
+!frontend/
+!frontend/**
 !.runpod/
 !.runpod/handler.py
 **/__pycache__
