@@ -1,5 +1,5 @@
 {
-  "title": "IDEOGRAM 4 ComfyUI Studio",
+  "title": "Ideogram 4 Image ComfyUI One-Click",
   "description": "Local ideogram base and distilled image generation with simple, editable ComfyUI workflows.",
   "type": "serverless",
   "category": "image",
@@ -8,7 +8,7 @@
     "endpointType": "LB",
     "containerDiskInGb": 200,
     "gpuCount": 1,
-    "gpuIds": "AMPERE_80",
+    "gpuIds": "ADA_48_PRO,AMPERE_48",
     "allowedCudaVersions": [
       "12.8",
       "12.9",

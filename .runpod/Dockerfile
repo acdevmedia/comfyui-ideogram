@@ -11,6 +11,7 @@ COPY scripts /opt/acdev/scripts
 COPY config /opt/acdev/config
 COPY versions /opt/acdev/versions
 COPY .runpod/handler.py /opt/acdev/handler.py
+RUN python3 /opt/acdev/scripts/patch-comfyui-proxy-guard.py /opt/acdev/ComfyUI/server.py
 RUN chmod +x /opt/acdev/scripts/*.sh && python3 /opt/acdev/scripts/check-build.py
 ARG VCS_REF=development
 RUN printf '%s\n' "$VCS_REF" > /opt/acdev/image-commit && python3 -m pip freeze > /opt/acdev/python-lock.txt

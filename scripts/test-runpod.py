@@ -1,10 +1,12 @@
 """Actions-only disposable GPU test. Always deletes the pod, including on failure."""
-import argparse,copy,io,json,os,signal,subprocess,time,urllib.parse,urllib.request,urllib.error
+import argparse,copy,io,json,os,random,signal,subprocess,time,urllib.parse,urllib.request,urllib.error
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 OUT=ROOT/'.runtime';OUT.mkdir(exist_ok=True)
 PROFILE=json.loads((ROOT/'config/profile.json').read_text())
 KEY=os.environ.get('RUNPOD_API_KEY','')
+KEEP=False
+GPU_TYPES=[g.strip() for g in os.environ.get('VALIDATION_GPU_TYPES','NVIDIA L40S,NVIDIA RTX A6000,NVIDIA A40').split(',') if g.strip()]
 
 def request(url,method='GET',data=None,auth=False,raw=False):
  headers={'User-Agent':'acdev-validation','Content-Type':'application/json'}
@@ -16,9 +18,11 @@ def request(url,method='GET',data=None,auth=False,raw=False):
 
 def cloud(path,method='GET',data=None):return request('https://rest.runpod.io/v1'+path,method,data,auth=True)
 
-def cleanup():
+def cleanup(force=False):
  state=OUT/'pod.json'
  if not state.exists():return
+ if KEEP and not force:
+  print('Keeping validation pod for manual testing; delete it with --cleanup',flush=True);return
  pod=json.loads(state.read_text())
  if pod.get('deleted'):return
  try:cloud('/pods/'+pod['id'],'DELETE')
@@ -36,28 +40,37 @@ def logs(pod_id):
  except Exception as exc:print('Diagnostic retrieval:',type(exc).__name__,flush=True)
 
 def main():
- parser=argparse.ArgumentParser();parser.add_argument('--cleanup',action='store_true');args=parser.parse_args()
- if args.cleanup:cleanup();return
+ parser=argparse.ArgumentParser();parser.add_argument('--cleanup',action='store_true');parser.add_argument('--keep',action='store_true');parser.add_argument('--pod',default='');args=parser.parse_args()
+ global KEEP
+ KEEP=args.keep
+ if args.cleanup:cleanup(force=True);return
  assert KEY,'RUNPOD_API_KEY Actions secret is required'
- digest=os.environ['IMAGE_DIGEST'];assert digest.startswith('sha256:')
- subprocess.run(['ssh-keygen','-q','-t','ed25519','-N','','-f',str(OUT/'test-key')],check=True)
+ digest=os.environ.get('IMAGE_DIGEST','')
+ assert args.pod or digest.startswith('sha256:'),'IMAGE_DIGEST is required unless --pod reuses a running pod'
+ if args.pod:KEEP=True
+ for suffix in ('','.pub'):(OUT/('test-key'+suffix)).unlink(missing_ok=True)
+ subprocess.run(['ssh-keygen','-q','-t','ed25519','-N','','-f',str(OUT/'test-key')],stdin=subprocess.DEVNULL,check=True)
  config=json.loads((ROOT/'config/runpod-template.json').read_text());env={**config['env'],'PUBLIC_KEY':(OUT/'test-key.pub').read_text().strip()}
- payload={'name':f'acdev-{PROFILE["kind"]}-{os.environ.get("GITHUB_RUN_ID","test")}-validation','imageName':config['imageName'].split(':')[0]+'@'+digest,'cloudType':'SECURE','computeType':'GPU','gpuTypeIds':['NVIDIA A100-SXM4-80GB','NVIDIA A100 80GB PCIe'],'gpuTypePriority':'availability','gpuCount':1,'containerDiskInGb':200,'volumeInGb':0,'volumeMountPath':'/workspace','ports':['8000/http','8188/http','2222/tcp'],'supportPublicIp':True,'env':env}
+ payload={'name':f'acdev-{PROFILE["kind"]}-{os.environ.get("GITHUB_RUN_ID","test")}-validation','imageName':config['imageName'].split(':')[0]+'@'+digest,'cloudType':'SECURE','computeType':'GPU','gpuTypeIds':GPU_TYPES,'gpuTypePriority':'availability','gpuCount':1,'containerDiskInGb':200,'volumeInGb':0,'volumeMountPath':'/workspace','ports':['8188/http','2222/tcp'],'supportPublicIp':True,'env':env}
  if os.environ.get('RUNPOD_REGISTRY_AUTH_ID'):payload['containerRegistryAuthId']=os.environ['RUNPOD_REGISTRY_AUTH_ID']
  def deadline(signum, frame):raise TimeoutError('Validation deadline reached; deleting test pod')
  signal.signal(signal.SIGALRM, deadline)
  signal.signal(signal.SIGTERM, deadline)
  signal.alarm(45 * 60)
- pod=None
+ pod={'id':args.pod} if args.pod else None
+ if not args.pod:
+  existing=[x for x in cloud('/pods') if x.get('name')==payload['name']]
+  assert not existing,'A validation pod named %s already exists (%s); delete it before starting another.'%(payload['name'],', '.join(x['id'] for x in existing))
  try:
-  pod=cloud('/pods','POST',payload)
-  (OUT/'pod.json').write_text(json.dumps({'id':pod['id'],'created_at':time.time(),'image':payload['imageName'],'costPerHr':pod.get('costPerHr')},indent=2))
-  print('Validation pod:',pod['id'],'hourly rate:',pod.get('costPerHr'),flush=True)
-  base=f'https://{pod["id"]}-8000.proxy.runpod.net';start=time.monotonic()
+  if args.pod:print('Reusing running validation pod:',args.pod,flush=True)
+  else:pod=cloud('/pods','POST',payload)
+  if not args.pod:
+   (OUT/'pod.json').write_text(json.dumps({'id':pod['id'],'created_at':time.time(),'image':payload['imageName'],'costPerHr':pod.get('costPerHr')},indent=2))
+   print('Validation pod:',pod['id'],'hourly rate:',pod.get('costPerHr'),flush=True)
+  base=f'https://{pod["id"]}-8188.proxy.runpod.net';start=time.monotonic()
   while time.monotonic()-start<1800:
    try:
-    ready=request(base+'/ping')
-    if ready.get('status')=='ready':break
+    if request(base+'/system_stats').get('devices'):break
    except Exception:pass
    status=cloud('/pods/'+pod['id'])
    if status.get('desiredStatus') in ['EXITED','TERMINATED']:raise RuntimeError('Validation pod exited before readiness')
@@ -75,7 +88,9 @@ def main():
    graph=json.loads(path.read_text())
    for n in graph.values():
     assert n['class_type'] in info,n['class_type']
-    if n['class_type'].endswith('Studio'):n['inputs'].update(width=512,height=512)
+    if n['class_type'].endswith('Studio'):
+     n['inputs'].update(width=512,height=512)
+     if args.pod:n['inputs']['seed']=random.randrange(1,2**31)
     if n['class_type']=='SaveImage':n['inputs']['filename_prefix']='validation/'+path.stem
    mode=next(n['inputs']['mode'] for n in graph.values() if n['class_type'].endswith('Studio'))
    if any(n['class_type']=='LoadImage' for n in graph.values()):
@@ -83,7 +98,7 @@ def main():
     boundary='acdev-validation-upload'
     filename='validation-'+mode+'.png'
     body=(f'--{boundary}\r\nContent-Disposition: form-data; name="image"; filename="{filename}"\r\nContent-Type: image/png\r\n\r\n'.encode()+source_images[mode]+f'\r\n--{boundary}--\r\n'.encode())
-    req=urllib.request.Request(base+'/upload/image',data=body,headers={'Content-Type':'multipart/form-data; boundary='+boundary})
+    req=urllib.request.Request(base+'/upload/image',data=body,headers={'Content-Type':'multipart/form-data; boundary='+boundary,'User-Agent':'acdev-validation'})
     with urllib.request.urlopen(req,timeout=45) as response:uploaded=json.load(response)
     for node in graph.values():
      if node['class_type']=='LoadImage':node['inputs']['image']=uploaded['name']

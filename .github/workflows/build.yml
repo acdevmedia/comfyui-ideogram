@@ -24,6 +24,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Validate source
         run: python3 scripts/check-source.py
+      - name: Validate Runpod template parity and gateway handler
+        run: |
+          python3 -m pip install --quiet aiohttp
+          python3 .runpod/test_template_sync.py
+          python3 .runpod/test_handler.py
       - name: Free build disk
         run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
@@ -73,6 +78,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
+          include-hidden-files: true
           name: ideogram-4-gpu-validation
           path: |
             .runtime/*.json

@@ -9,7 +9,7 @@
     }
   ],
   "config": {
-    "gpuTypeId": "NVIDIA A100 80GB PCIe",
+    "gpuTypeId": "NVIDIA L40S",
     "gpuCount": 1,
     "allowedCudaVersions": [
       "12.8",

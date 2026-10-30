@@ -1,0 +1,24 @@
+{
+  "templateId": "uhvnoz8ypz",
+  "templateName": "Ideogram 4 Image ComfyUI One-Click",
+  "imageName": "ghcr.io/acdevmedia/ideogram-comfyui:4",
+  "containerDiskInGb": 200,
+  "volumeMountPath": "/workspace",
+  "ports": [
+    "8188/http"
+  ],
+  "env": {
+    "HF_TOKEN": "{{ RUNPOD_SECRET_HUGGINGFACE_TOKEN }}",
+    "HF_HOME": "/workspace/.cache/huggingface",
+    "MODEL_MODE": "both",
+    "STUDIO_VERSION": "4",
+    "PORT": "8000",
+    "PORT_HEALTH": "8001"
+  },
+  "isPublic": true,
+  "startJupyter": false,
+  "startSsh": false,
+  "dockerEntrypoint": null,
+  "dockerStartCmd": null,
+  "volumeInGb": 0
+}
