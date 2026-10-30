@@ -1,142 +1,142 @@
-## Image to image
-
-Ideogram 4 has **no local edit model**. There is no instruction-following or masked-inpainting
-checkpoint in the open weights, so these workflows do not edit a picture the way a hosted editor
-would. They perform **image-to-image variation**: the source is VAE-encoded, normalized into the
-pipeline latent format, blended with noise at a shortened schedule, and denoised toward the caption,
-using the same loaded model, VAE and text encoder as generation. Describe the result you want rather
-than expecting a localized, surgical change.
-
-`image_strength=0.5` is the starting point. Lower values keep more of the source; 1.0 approaches a
-fresh generation and 0 returns the resized source unchanged. The global pipeline cache reuses one
-loaded base or distilled pipeline for both generation and variation, releasing the old one only when
-you switch variant.
-
 # Ideogram 4 Image ComfyUI One-Click
 
 [![Runpod](https://api.runpod.io/badge/acdevmedia/comfyui-ideogram)](https://console.runpod.io/hub/listing/acdevmedia/comfyui-ideogram)
 
-Ideogram 4: local base and fal Instant distilled image generation inside ComfyUI. Version 4 is the latest downloadable open-weight Ideogram family verified for this package; hosted Ideogram 4.5 is not included.
+Ideogram 4 running locally in ComfyUI: the undistilled base checkpoint and fal's Instant distilled checkpoint, with text-to-image and image-to-image in one package. Version 4 is the latest downloadable open-weight Ideogram family; hosted Ideogram 4.5 has no published weights and is not included.
 
-Container: **`ghcr.io/acdevmedia/ideogram-comfyui:4`**. Image releases also receive a version tag (`4.0.0`) and an immutable `sha-<commit>` tag. Source pins, model revisions and checksums live under `versions/4/`. New model generations get their own profile and container major tag; rebuilds retain the model family tag and always get a new commit tag.
+Container: **`ghcr.io/acdevmedia/ideogram-comfyui:4`**, also tagged `4.0.0` and with an immutable `sha-<commit>` tag. Model revisions, checksums and workflow defaults live under `versions/4/`. A new model generation gets its own profile directory and major tag; rebuilds keep the family tag and always add a commit tag.
 
 ## Start on Runpod
 
-1. Sign in to Hugging Face and accept the model access agreements for each linked repository using the account that owns your token:
+1. Sign in to Hugging Face and accept the model agreement for **each** repository, using the account that owns your token. The agreements are separate; accepting one does not grant the other.
    - [ideogram-ai/ideogram-4-nf4-diffusers](https://huggingface.co/ideogram-ai/ideogram-4-nf4-diffusers)
    - [fal/ideogram-v4-instant](https://huggingface.co/fal/ideogram-v4-instant)
-   Agreements apply separately to each repository. Accepting one does not grant access to the others.
-2. Create a Hugging Face **read** token and add it to Runpod Secrets as **HUGGINGFACE_TOKEN**. The template maps this secret to `HF_TOKEN`; do not paste credentials into public template fields.
-3. Create/update the template with `python3 scripts/create-runpod-template.py`. Use `--dry-run` to review its payload. This small API helper reads the ignored local `.env`; it does not build an image or download models.
-4. Launch on a **48 GB** GPU with a **200 GB container disk** and no persistent volume. **L40S** and **A40** are both validated; the L40S is roughly twice as fast for this workload, and **RTX A6000** is the other 48 GB option. Peak residency is about 25 GB on the distilled path: an 18.6 GB BF16 transformer plus the shared 5.5 GB text encoder and VAE. A 24 GB card is not enough; an 80 GB A100 is not required and costs several times as much. First boot downloads the pinned weights into `/workspace/ComfyUI/models`.
-5. Open **Connect → HTTP 8188 / ComfyUI**. The template exposes ComfyUI only; the service reports Ready once the weights finish downloading. If the Connect link returns **HTTP 403**, open a blank tab and paste `https://<pod-id>-8188.proxy.runpod.net` into the address bar — see Troubleshooting. No additional installation is required.
-6. In the workflow sidebar, choose the base or distilled workflow, edit the prompt and shot settings, and click Queue. Save generated images before deleting/replacing the Pod.
+2. Create a Hugging Face **read** token and add it to Runpod Secrets as **HUGGINGFACE_TOKEN**. The template maps that secret to `HF_TOKEN`; never paste credentials into public template fields.
+3. Create or update the template with `python3 scripts/create-runpod-template.py`, or `--dry-run` to review the payload first. It only calls the Runpod API; it builds nothing and downloads no weights.
+4. Launch on a **48 GB** GPU with a **200 GB container disk** and no persistent volume. **L40S** and **A40** are both validated, the L40S roughly twice as fast; **RTX A6000** is the other 48 GB option. A 24 GB card is not enough — peak residency is about 25 GB on the distilled path, an 18.6 GB BF16 transformer plus the shared 5.5 GB text encoder and VAE. An 80 GB A100 is not required and costs several times as much.
+5. Open **Connect → HTTP 8188 / ComfyUI** once the service reports Ready. First boot downloads the pinned weights into `/workspace/ComfyUI/models`, so give it several minutes.
+6. Pick a workflow in the sidebar, type a prompt, press Queue.
 
-Storage is temporary. The template does not attach a network volume. First-boot downloads are resumable, existing workflow edits are preserved, and no model weights or credentials are baked into the container.
+Storage is temporary and no network volume is attached. First-boot downloads resume, your workflow edits persist across restarts, and no weights or credentials are baked into the image.
 
-## Simple workflows
+## Using it
 
-- **01 Base Text to Image:** a plain prompt, Magic Prompt on, running the official **4.0 Default 20** preset against the quantized NF4 conditional and unconditional branches.
-- **03–04 Image to Image:** upload a picture and describe the desired result; `image_strength` sets how far from the source to travel.
-- **02 Distilled Text to Image:** fal Instant's BF16, eight-step, single-branch checkpoint; guidance must remain 1.0. Distillation does not mean NF4/FP8 quantization.
+Type a plain-English prompt and press Queue. That is the whole interface.
 
-Type a plain-English prompt and press Queue. **Magic Prompt** is on by default: Ideogram's own prompt enhancer rewrites your sentence into the structured JSON caption the model was trained on, including bounding-box layout, and generation is schema-constrained so the caption is always valid. Nothing else is required, and no JSON is involved.
+Ideogram 4 is trained **exclusively** on structured JSON captions, so a bare sentence is never sent to it. **Magic Prompt** — Ideogram's own enhancer, running locally — rewrites your sentence into a full caption with bounding-box layout, schema-constrained so the result is always valid. It runs on a 1.2 GB generative head grafted onto the text encoder already in memory: no second model, no API call, and reproducible from the seed.
 
-**Leave Magic Prompt on.** Beyond adherence, it materially reduces spurious safety-filter refusals: the model is trained on rich structured captions, and the enhancer rewrites your sentence into one. A thin wrapper around your literal wording is closer to plain text, which Ideogram's own documentation notes triggers false positives more often. Observed directly on the same prompt and settings: enhancer on produced an image, enhancer off returned the filter's placeholder card.
+**Leave Magic Prompt on.** Without it the model receives something close to plain text, which gives poor adherence and, in our testing, more spurious safety-filter refusals — on one prompt with identical settings, the enhancer produced an image while the un-enhanced path returned the filter's placeholder card. If you do turn it off, the node still wraps your sentence in a minimal valid caption rather than sending raw text. If the enhancer ever returns something unusable, the node logs what came back and falls back to that wrapper instead of rendering a blank frame.
 
-**Optional caption overrides.** Three fields on the node steer the caption without touching JSON. Leave any of them blank and the enhancer's own choice stands.
+The caption actually used is the node's second output, so you can always see what the model was given.
 
-- **text_in_image** — the literal words to render. Blank also *removes* lettering the enhancer invented, which is the usual case for photographic prompts; the removal is logged.
-- **background** — replaces the caption's background description.
-- **style** — replaces the style block's art direction, or folds into the summary when the caption has no style block, rather than inventing the aesthetics, lighting and medium the schema would otherwise require.
+### Caption overrides
 
-**`text_in_image` is blank by default.** The enhancer volunteers an in-image text element even for prompts that never mention lettering, and the distilled checkpoint renders it as pseudo-words across the frame. Blank drops the text elements the enhancer invented; put your words in the field for posters, signage and anything where you want typography.
+Three optional fields steer the caption without touching JSON. Leave any of them blank and the enhancer's own choice stands.
 
-A plain sentence is never sent to the model raw. With Magic Prompt off, the node wraps it in a minimal valid caption so the model still receives the format it was trained on; if Magic Prompt returns something unusable, the node logs what came back and falls back to that same wrapper rather than rendering a blank frame. The caption actually used is returned as the node's second output, so you can always see what the model was given.
+| Field | Blank | Set |
+| --- | --- | --- |
+| `text_in_image` | Removes lettering the enhancer invented, and logs it | Renders exactly these words |
+| `background` | Keeps the enhancer's background | Replaces the background description |
+| `style` | Keeps the enhancer's art direction | Replaces it |
 
-Magic Prompt runs locally through a 1.2 GB generative head grafted onto the text encoder that is already loaded, so it adds no second model and makes no API call. It is reproducible from the seed. Turning it off sends your text to the model unchanged, which the model's authors advise against because it was trained only on structured captions.
+`text_in_image` is blank by default and that matters: Ideogram is a typography model and its enhancer adds an in-image text element even to prompts that never mention lettering, which the distilled checkpoint renders as pseudo-words across the frame. Put your words in the field for posters and signage.
 
-### Advanced: writing the caption yourself
+`style` replaces the art direction inside an existing style block. When a caption has no style block it folds into the summary instead, rather than inventing the aesthetics, lighting and medium the schema would otherwise demand.
 
-**10 Advanced Structured Caption** adds the caption builder for anyone who wants explicit control, and the simple workflows never show it. It emits the published schema in the exact key order the upstream caption verifier checks, and exposes:
+### Seeds
 
-- **scene** → `high_level_description`; **background** → the environment, required by the schema.
-- **elements** → one per line. A bare line is an object with no box; otherwise pipe-separated:
+The seed widget carries ComfyUI's standard **control after generate**, set to `randomize` in every packaged workflow, so each run differs. Set `fixed` to reproduce an exact image, or `increment` to walk a series.
 
-  ```
-  obj  | y_min,x_min,y_max,x_max | description                     | #HEX,#HEX
-  text | y_min,x_min,y_max,x_max | THE WORDS | description         | #HEX,#HEX
-  ```
+## Workflows
 
-  Boxes are `[y_min, x_min, y_max, x_max]` in **normalized 0–1000** coordinates from the top left, independent of canvas size. Use `-` to omit one.
-- **aesthetics**, **lighting**, **medium**, **photo_or_art_style**, **color_palette** → `style_description`, supplied together or left entirely empty.
-- **raw_json** → paste a complete caption and bypass the builder.
+- **01 Base Text to Image** — the quantized NF4 conditional and unconditional branches on the official `4.0 Default 20` preset.
+- **02 Distilled Text to Image** — fal Instant's BF16 eight-step single-branch checkpoint. Guidance stays at 1.0. Distilled does not mean quantized.
+- **03 / 04 Image to Image** — upload a picture and describe the result you want.
+- **10 Advanced Structured Caption** — write the caption yourself, bounding boxes included.
 
-Malformed boxes, palettes and partial style groups are rejected locally, before anything reaches a paid GPU. Schema reference: [Ideogram 4 prompting guide](https://github.com/ideogram-oss/ideogram-4/blob/main/docs/prompting.md).
+## Sampler presets
 
-The settings panel exposes a sampler preset, dimensions, seed, steps, guidance, sampler, initial-noise multiplier, schedule mean/spread and text token limit. Canvas defaults to **1280 × 720**.
-
-**Sampler presets** carry Ideogram's official per-step guidance schedule, whose final low-guidance "polish" steps are part of the schedule rather than an extra stage:
+Presets carry Ideogram's official per-step guidance schedule. The closing low-guidance "polish" steps are part of that schedule, not an extra stage, and a preset owns its step count, mu and std because the schedule's length must equal the step count.
 
 | Preset | Steps | Guidance schedule | mu | std |
 | --- | --- | --- | --- | --- |
-| `4.0 Default 20` (default) | 20 | 18 × 7.0, then 2 × 3.0 | 0.0 | 1.75 |
-| `4.0 Quality 48` | 48 | 45 × 7.0, then 3 × 3.0 | 0.0 | 1.5 |
-| `4.0 Turbo 12` | 12 | 11 × 7.0, then 1 × 3.0 | 0.5 | 1.75 |
+| `4.0 Default 20` (default) | 20 | 18 x 7.0, then 2 x 3.0 | 0.0 | 1.75 |
+| `4.0 Quality 48` | 48 | 45 x 7.0, then 3 x 3.0 | 0.0 | 1.5 |
+| `4.0 Turbo 12` | 12 | 11 x 7.0, then 1 x 3.0 | 0.5 | 1.75 |
 | `custom` | yours | constant `guidance` | yours | yours |
 
-A preset owns its step count, mu and std, because the schedule's length must equal the step count. `custom` applies a constant guidance scale instead, which is what the earlier releases did at every step; that is a deviation from the reference configuration and degrades output noticeably at high step counts.
+`custom` applies a constant guidance scale, which is what earlier releases did at every step. That is a deviation from the reference configuration and visibly degrades output at high step counts.
 
-The **initial-noise multiplier** defaults to **1.0**, the value the flow schedule expects. Raising it starts sampling at a higher variance than training, which is an [experimental community adaptation](https://www.reddit.com/r/StableDiffusion/comments/1tz4fnf/ideogram_4_a_solution_for_removing_the_annoying/) rather than a supported setting, and it visibly degrades structure and text rendering. The `lcm` sampler is likewise experimental and intended for few-step runs; `euler` is the default and matches the reference pipeline. These controls affect local sampling only.
+The **initial-noise multiplier** defaults to **1.0**, the variance the flow schedule expects. Raising it is an [experimental community adaptation](https://www.reddit.com/r/StableDiffusion/comments/1tz4fnf/ideogram_4_a_solution_for_removing_the_annoying/), not a supported setting, and it degrades structure and text rendering. The `lcm` sampler is likewise experimental and meant for few-step runs; `euler` is the default and matches the reference pipeline.
 
-**There is no negative prompt.** Ideogram 4's pipeline takes none: its unconditional branch is built from zeroed inputs rather than from encoded negative text, so there is no channel to put one in. Describe what you do want in the structured caption.
+Canvas defaults to **1280 x 720**. Any multiple of 16 from 256 to 2048 per side is supported.
 
-The distilled path uses the [checkpoint author's documented zero-parameter unconditional compatibility module](https://huggingface.co/fal/ideogram-v4-instant), with no effective CFG branch. It is not bit-exact with fal's optimized hosted runtime. Only one pipeline is retained when switching modes. These Diffusers nodes run in the ComfyUI process and use the selected GPU; they do not expose separate ComfyUI model-loader sockets.
+**There is no negative prompt.** Ideogram 4's pipeline accepts none — its unconditional branch is built from zeroed inputs rather than encoded negative text, so there is no channel for one. Describe what you do want.
 
-Prompt inspiration: [EvoLinkAI's curated examples](https://github.com/EvoLinkAI/awesome-ideogram-4.0-prompts). The packaged demonstration prompt is original. Official model notes: [Ideogram open weights](https://huggingface.co/ideogram-ai), [Ideogram inference code](https://github.com/ideogram-oss/ideogram-4). Check the model agreement for permitted use; the downloadable checkpoints use the Ideogram non-commercial model license.
+## Image to image
 
-## Seeds
+Ideogram 4 has **no local edit model**. There is no instruction-following or masked-inpainting checkpoint in the open weights, so these workflows do not edit a picture the way a hosted editor does. They perform **image-to-image variation**: the source is VAE-encoded, normalized into the pipeline latent format, blended with noise at a shortened schedule, and denoised toward the caption, reusing the same loaded model, VAE and text encoder as generation. Describe the result you want rather than expecting a surgical local change.
 
-The seed widget carries ComfyUI's standard **control after generate** control, set to `randomize` in every packaged workflow, so each run uses a new seed. Set it to `fixed` to reproduce an exact image, or `increment` to walk a series. Earlier releases pinned the seed at 42 with the control disabled, which made every run of a workflow produce the same picture.
+`image_strength` defaults to 0.5. Lower keeps more of the source, 1.0 approaches a fresh generation, and 0 returns the resized source unchanged.
+
+## Advanced: writing the caption yourself
+
+**10 Advanced Structured Caption** exposes the builder directly, emitting the published schema in the key order the upstream caption verifier checks. The simple workflows never show it.
+
+- **scene** maps to `high_level_description`; **background** describes the environment and is required by the schema.
+- **elements** takes one per line. A bare line is an object with no box; otherwise pipe-separated:
+
+  ```
+  obj  | y_min,x_min,y_max,x_max | description                   | #HEX,#HEX
+  text | y_min,x_min,y_max,x_max | THE WORDS | description       | #HEX,#HEX
+  ```
+
+  Boxes are `[y_min, x_min, y_max, x_max]` in **normalized 0-1000** coordinates from the top left, independent of canvas size. Use `-` to omit one.
+- **aesthetics**, **lighting**, **medium**, **photo_or_art_style**, **color_palette** build `style_description`, supplied together or left entirely empty.
+- **raw_json** takes a complete caption and bypasses the builder.
+
+Malformed boxes, palettes and partial style groups are rejected locally, before anything reaches a paid GPU. Schema reference: [Ideogram 4 prompting guide](https://github.com/ideogram-oss/ideogram-4/blob/main/docs/prompting.md).
+
+The distilled path uses the [checkpoint author's zero-parameter unconditional compatibility module](https://huggingface.co/fal/ideogram-v4-instant) and has no effective CFG branch. It is not bit-exact with fal's hosted runtime. Only one pipeline stays loaded; switching variant releases the other. These Diffusers nodes run inside the ComfyUI process and do not expose separate model-loader sockets.
+
+Prompt inspiration: [EvoLinkAI's curated examples](https://github.com/EvoLinkAI/awesome-ideogram-4.0-prompts). Official notes: [Ideogram open weights](https://huggingface.co/ideogram-ai), [inference code](https://github.com/ideogram-oss/ideogram-4). The downloadable checkpoints carry the Ideogram **non-commercial** model license; check it before commercial use.
 
 ## Image preview ribbon
 
-A strip of recent output images sits along the bottom of the ComfyUI window and refreshes as each queued graph finishes, so you can queue a long batch and watch it fill.
+A strip of recent output images sits along the bottom of the window and refreshes as each queued graph finishes, so you can queue a long batch and watch it fill.
 
-Click any thumbnail to open the viewer. **Left and right arrow keys** move through the batch, **space** picks the current image, **D** downloads it and **Escape** closes. The tick in the corner of a thumbnail picks it without opening the viewer. **Download picked** then saves just those files, which is the point: queue fifty, skim them, keep the three that worked.
+Click a thumbnail to open the viewer: arrow keys move through the batch, **space** picks, **D** downloads, **Escape** closes. The tick on a thumbnail picks without opening it. **Download picked** then saves only those files, which is the point: queue fifty, skim, keep three.
 
-Picks live for the session and are never uploaded. The ribbon reads the recent `/history` entries through ComfyUI's own `/view` endpoint, skips transient previews, and never scans the output directory.
+Picks last for the session and are never uploaded. The ribbon reads recent `/history` entries through ComfyUI's `/view` endpoint, skips transient previews, and never scans the output directory.
 
 ## Environment variables
 
-- `HF_TOKEN`: Hugging Face read credential, mapped to `{{ RUNPOD_SECRET_HUGGINGFACE_TOKEN }}`. Required; access must be approved for each gated repository.
-- `HF_HOME=/workspace/.cache/huggingface`: Hugging Face cache/metadata location.
-- `MODEL_MODE=both`: download both variants. `base` limits first-boot downloads. Ideogram `distilled` still needs the base repository's shared encoder, tokenizer and VAE components.
-- `STUDIO_VERSION=4`: baked profile identity; changing this does not install another model generation.
-- `PORT=8000`: gateway HTTP port used by the Runpod Hub/Serverless listing. The Pod template does not expose it; Pod users reach ComfyUI directly on 8188.
-- `PORT_HEALTH=8001`: readiness service used by the Hub listing; `/ping` returns 503 until ComfyUI responds with device information. Not exposed by the Pod template.
-- `OMP_NUM_THREADS=8`, `MKL_NUM_THREADS=8`: runtime CPU-thread defaults; override to match the Pod's allocated CPU quota.
-- `PUBLIC_KEY`: optional SSH public key for diagnostics. When present, the container starts SSH on port 2222; the template does not expose this port. The disposable Actions test exposes it only for its ephemeral key.
+- `HF_TOKEN`: Hugging Face read credential, mapped to `{{ RUNPOD_SECRET_HUGGINGFACE_TOKEN }}`. Required, with both gated agreements accepted.
+- `HF_HOME=/workspace/.cache/huggingface`: Hugging Face cache and metadata location.
+- `MODEL_MODE=both`: download both variants. `base` limits first-boot downloads; `distilled` still needs the base repository's shared encoder, tokenizer and VAE.
+- `STUDIO_VERSION=4`: baked profile identity. Changing it does not install another model generation.
+- `PORT=8000`: gateway port for the Runpod Hub/Serverless listing. The Pod template does not expose it; Pod users reach ComfyUI directly on 8188.
+- `PORT_HEALTH=8001`: readiness service for the Hub listing; `/ping` returns 503 until ComfyUI reports device information. Not exposed by the Pod template.
+- `OMP_NUM_THREADS=8`, `MKL_NUM_THREADS=8`: CPU-thread defaults; match them to the Pod's CPU quota.
+- `PUBLIC_KEY`: optional SSH key for diagnostics. When set, the container starts SSH on 2222; the template does not expose that port.
 
-`RUNPOD_API_KEY` and `GITHUB_PACKAGES_PAT` are local deployment credentials only; never pass them into the worker container. GitHub Actions uses repository secrets for Runpod validation. The account's existing GHCR registry authorization is supplied separately to disposable test Pods where required.
+`RUNPOD_API_KEY` and `GITHUB_PACKAGES_PAT` are local deployment credentials only and must never reach the worker container.
 
 ## Build, validate and update
 
-All container builds and runtime tests run in **GitHub Actions**. Do not build on the local workstation. Push to `develop` or `main`, or dispatch the build workflow. Paid GPU tests are opt-in through the `gpu_smoke` dispatch input; ordinary pushes build and run CPU checks only. The workflow runs source checks, builds on an Actions runner, starts a CPU-only ComfyUI service inside the build to verify graph schemas, then publishes the image. When dispatched with `gpu_smoke=true`, it launches a disposable 48 GB L40S Pod using that exact image digest (override with `VALIDATION_GPU_TYPES`) and generates a 512×512 image and an image-edit result with each checkpoint, grouping each pair to keep that model loaded. Validation checks dimensions, pixel variance and entropy; these detect blank outputs, not artistic quality. PNGs, system metadata and results are uploaded as Actions artifacts. A `finally` block and an unconditional cleanup step delete the test Pod.
+All container builds and runtime tests run in **GitHub Actions**, never on a local workstation. Pushing to `develop` or `main` builds, runs source and template-parity checks, verifies graph schemas against a CPU-only ComfyUI, and publishes the image.
 
-The package must be public on GHCR for anonymous template users; account registry credentials can support private validation. Configure Actions secrets `RUNPOD_API_KEY` and, if needed, `RUNPOD_REGISTRY_AUTH_ID`. The `.runpod` listing uses the same image build and environment defaults; its required readiness test does not replace the GPU generation tests. For Serverless browser use, keep exactly one active worker and supply Runpod authentication on HTTP and WebSocket requests. The Pod template is the straightforward browser deployment.
+Paid GPU tests are opt-in through the `gpu_smoke` dispatch input. When set, Actions launches a disposable 48 GB Pod from that exact image digest (`VALIDATION_GPU_TYPES` overrides the card), renders every packaged workflow at 512 x 512, and checks dimensions, pixel variance and entropy. Those checks catch blank and passthrough output, not artistic quality. PNGs, system metadata and results upload as artifacts, and a `finally` block plus an unconditional cleanup step delete the Pod.
 
-Build and GPU-validation status must be confirmed in Actions before treating a revision as tested. Captured package versions are stored in `/opt/acdev/python-lock.txt` inside each image. To update a model generation, add a new version profile, regenerate its workflow defaults and manifests, update the corresponding container tags, and repeat the remote tests. No runtime dependency upgrades or branch-head model downloads occur during Pod startup.
+`scripts/test-runpod.py` also runs by hand: `--keep` leaves the Pod up for manual inspection, `--pod <id>` re-runs the matrix against a running Pod with randomised seeds, and `--cleanup` deletes it. Seeds are randomised on reuse because ComfyUI returns cached outputs in milliseconds for an identical prompt and seed, which would otherwise look like a passing run that executed nothing.
 
-## Image editing and model reuse
-
-Local Ideogram 4 does not provide the hosted 4.5 instruction/Precise Edit model. These workflows perform **image-to-image reconstruction and variation** using the same loaded model, VAE and text encoder as generation. The source is VAE-encoded, normalized into the pipeline latent format, blended with noise at a shortened schedule, and denoised toward the caption. It is not a dedicated instruction-following or masked-inpainting model. Describe the desired final scene rather than assuming localized semantic changes will be exact.
-
-`image_strength=0.5` is the starting point: lower values retain more source structure; 1.0 approaches a fresh generation, and 0 returns the resized source. The initial-noise multiplier also affects the preservation/change balance. Use Euler with noise 1.0 for a reference-style comparison. The global pipeline cache reuses one loaded base or distilled pipeline for generation and editing; changing the variant releases the old pipeline before loading the other.
+The GHCR package must stay public for anonymous template users. Configure Actions secrets `RUNPOD_API_KEY` and, if needed, `RUNPOD_REGISTRY_AUTH_ID`. Captured package versions live in `/opt/acdev/python-lock.txt` inside each image. Confirm build and GPU status in Actions before treating a revision as tested; `docs/VALIDATION.md` holds the current record.
 
 ## Troubleshooting
 
-- **Connect opens ComfyUI with HTTP 403:** ComfyUI's browser-origin guard rejects cross-site page navigations, and a link clicked from the Runpod dashboard or any other site counts as cross-site. This image patches the guard at build time to permit only a safe top-level `GET /` navigation; cross-site API, WebSocket, form and subresource requests stay blocked. On a Pod built from an older digest, open a blank tab and paste `https://<pod-id>-8188.proxy.runpod.net` into the address bar, which the browser sends as a same-origin navigation.
-- **Connect shows ERR_INVALID_RESPONSE:** the same 403, returned with a body the browser cannot render. Treat it as the entry above.
-- **ComfyUI does not become ready:** first boot downloads the pinned weights before ComfyUI starts. Check the Pod logs; the service answers only after it reports device information.
+- **Connect opens ComfyUI with HTTP 403:** ComfyUI's browser-origin guard rejects cross-site page navigations, and a link clicked from the Runpod dashboard counts as cross-site. This image patches the guard at build time to permit only a safe top-level `GET /` navigation, leaving cross-site API, WebSocket, form and subresource requests blocked. On a Pod built from an older digest, paste `https://<pod-id>-8188.proxy.runpod.net` into a blank tab instead.
+- **Connect shows ERR_INVALID_RESPONSE:** the same 403 with a body the browser cannot render. Treat it as above.
+- **"Image blocked by safety filter":** the model itself renders that card. The filter is in the weights and there is no setting that disables it. Rephrasing, and leaving Magic Prompt on, is what reduces false positives.
+- **Pseudo-words across the image:** the enhancer added an in-image text element. Leave `text_in_image` blank to strip it.
+- **ComfyUI does not become ready:** first boot downloads the pinned weights before ComfyUI starts. Check the Pod logs; the service answers only once it reports device information.
 - **Out of GPU memory:** use a 48 GB card. A 24 GB card cannot hold the distilled path.
