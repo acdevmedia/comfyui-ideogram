@@ -222,6 +222,22 @@ def strip_text_elements(caption):
         return caption, 0
 
 
+def looks_refused(image):
+    """True when the model painted its refusal card instead of a picture.
+
+    The card is a flat field carrying one line of text, so it clears naive blank checks.
+    """
+    try:
+        import numpy as _np
+        a = _np.asarray(image.convert('RGB').resize((128, 128)), dtype=_np.float32)
+        flat = (a // 32).astype(_np.int32)
+        keys = flat[..., 0] * 1024 + flat[..., 1] * 32 + flat[..., 2]
+        dominant = _np.bincount(keys.ravel()).max() / keys.size
+        return bool(dominant > 0.75 or (a.std() < 26 and dominant > 0.5))
+    except Exception:
+        return False
+
+
 def apply_overrides(caption, text_in_image, background, style):
     """Apply the node's optional caption overrides. A blank field changes nothing."""
     try:
@@ -423,6 +439,10 @@ class IdeogramStudio:
                     prompt_upsampling=upsample).images[0]
         finally:
             pipe.prepare_latents = original
+        if looks_refused(image):
+            print('[filter] The model returned its "blocked by safety filter" card rather than an '
+                  'image. That card is painted by the weights and cannot be switched off. Refusals '
+                  'vary with the seed, so an identical prompt may render on another run.', flush=True)
         return (torch.from_numpy(np.asarray(image).astype(np.float32) / 255.0).unsqueeze(0), text)
 
 
