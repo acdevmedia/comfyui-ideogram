@@ -90,7 +90,8 @@ def main():
     assert n['class_type'] in info,n['class_type']
     if n['class_type'].endswith('Studio'):
      n['inputs'].update(width=512,height=512)
-     if args.pod:n['inputs']['seed']=random.randrange(1,2**31)
+     # A fixed seed keeps runs comparable; refusals and quality both vary with it.
+     n['inputs']['seed']=random.randrange(1,2**31) if args.pod else 42
     if n['class_type']=='SaveImage':n['inputs']['filename_prefix']='validation/'+path.stem
    mode=next(n['inputs']['mode'] for n in graph.values() if n['class_type'].endswith('Studio'))
    if any(n['class_type']=='LoadImage' for n in graph.values()):
@@ -116,6 +117,14 @@ def main():
      assert image.size==(512,512),image.size
      assert max(metrics.stddev)>8,'Output is blank or nearly uniform'
      assert image.entropy()>3,'Output lacks image detail'
+     # A refusal card is a flat field with a line of text: it clears the blank thresholds
+     # above while containing no picture at all, so reject it on its own terms.
+     flat=image.resize((128,128)).quantize(colors=16).convert('RGB')
+     dominant=max(c for c,_ in flat.getcolors(4096))/(128*128)
+     if (image.entropy()<5.5 and max(metrics.stddev)<40) or dominant>0.75:
+      raise AssertionError('Output looks like a refusal card or a near-flat frame '
+       '(entropy %.2f, stddev %.1f, %.0f%% one colour), not a generated image'
+       %(image.entropy(),max(metrics.stddev),dominant*100))
      if 'Image_to_Image' in path.name:
       from PIL import ImageChops
       source=Image.open(io.BytesIO(source_images[mode])).convert('RGB')
