@@ -140,3 +140,7 @@ The GHCR package must stay public for anonymous template users. Configure Action
 - **Pseudo-words across the image:** the enhancer added an in-image text element. Leave `text_in_image` blank to strip it.
 - **ComfyUI does not become ready:** first boot downloads the pinned weights before ComfyUI starts. Check the Pod logs; the service answers only once it reports device information.
 - **Out of GPU memory:** use a 48 GB card. A 24 GB card cannot hold the distilled path.
+
+## CPU thread sizing
+
+CPU thread pools are sized automatically to the container CPU quota and available CPUs before PyTorch starts, avoiding host-sized pools that can throttle image scaling and export. Set `OMP_NUM_THREADS` and optionally `MKL_NUM_THREADS` to override; startup logs show the selected values. Actual speedup depends on the workload and has not been benchmarked for this revision.

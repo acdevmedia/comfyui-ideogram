@@ -19,3 +19,6 @@ for path in (root/'versions'/p['version']/'api').glob('*.json'):
 assert (root/'Dockerfile').read_text()==(root/'.runpod/Dockerfile').read_text()
 assert 'HF_TOKEN' not in (root/'Dockerfile').read_text()
 print('PASS: source syntax, pinned model metadata, graphs and Dockerfile parity')
+
+# Exercise quota-aware thread sizing without importing torch or requiring a GPU.
+subprocess.run(["bash",str(root/"scripts/test-cpu-threads.sh")],check=True)

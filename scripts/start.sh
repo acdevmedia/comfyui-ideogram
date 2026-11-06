@@ -11,7 +11,8 @@ if [[ -n "${PUBLIC_KEY:-}" ]]; then
   ssh-keygen -A
   /usr/sbin/sshd -p 2222
 fi
-export OMP_NUM_THREADS=${OMP_NUM_THREADS:-8} MKL_NUM_THREADS=${MKL_NUM_THREADS:-8}
+source /opt/acdev/scripts/cpu-threads.sh
+configure_cpu_threads
 python3 -c 'import torch; assert torch.cuda.is_available(), "An NVIDIA CUDA GPU is required"; print("GPU:",torch.cuda.get_device_name(0),"Torch:",torch.__version__,"CUDA:",torch.version.cuda)'
 ln -sfn /opt/acdev/ComfyUI/custom_nodes /workspace/ComfyUI/custom_nodes
 python3 /opt/acdev/scripts/download-models.py
