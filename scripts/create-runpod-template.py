@@ -21,7 +21,7 @@ def main():
  templates=request('https://rest.runpod.io/v1/templates')
  matches=[t for t in templates if t['id']==known] or [t for t in templates if t['name']==p['name']]
  assert len(matches)<=1,'Duplicate account templates; resolve before updating'
- value={'name':p['name'],'imageName':p['imageName'],'containerDiskInGb':p['containerDiskInGb'],'volumeInGb':0,'volumeMountPath':'/workspace','isPublic':p['isPublic'],'isServerless':False,'dockerArgs':'','ports':','.join(p['ports']),'portsConfig':[{'port':x.split('/')[0],'name':'ComfyUI'} for x in p['ports']],'env':[{'key':k,'value':v} for k,v in p['env'].items()],'readme':p['readme'],'category':'NVIDIA','startJupyter':False,'startSsh':False}
+ value={'name':p['name'],'imageName':p['imageName'],'containerDiskInGb':p['containerDiskInGb'],'volumeInGb':0,'volumeMountPath':'/workspace','isPublic':p['isPublic'],'isServerless':False,'dockerArgs':'','ports':','.join(p['ports']),'portsConfig':[{'port':x.split('/')[0],'name':{'8188':'ComfyUI','3923':'Copyparty'}[x.split('/')[0]]} for x in p['ports']],'env':[{'key':k,'value':v} for k,v in p['env'].items()],'readme':p['readme'],'category':'NVIDIA','startJupyter':False,'startSsh':False}
  if matches:value['id']=matches[0]['id']
  result=request('https://api.runpod.io/graphql',{'query':'mutation($input: SaveTemplateInput!) { saveTemplate(input:$input) { id name imageName } }','variables':{'input':value}})
  if result.get('errors'):raise RuntimeError([e['message'][-200:] for e in result['errors']])

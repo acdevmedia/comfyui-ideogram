@@ -4,15 +4,29 @@ Synced to account template **Ideogram 4 Image ComfyUI One-Click** (`uhvnoz8ypz`)
 
 [Open template](https://console.runpod.io/deploy?template=uhvnoz8ypz)
 
-Image: `ghcr.io/acdevmedia/ideogram-comfyui:4`. Container disk: **200 GB**. Workspace: `/workspace`. Template service: `8188/http` (ComfyUI). The gateway port 8000 is used by the Hub/Serverless listing only and is not exposed by the Pod template. No persistent volume is requested; `volumeInGb` is 0 and storage is temporary.
+Image: `ghcr.io/acdevmedia/ideogram-comfyui:4`. Container disk: **200 GB**. Workspace: `/workspace`. Template service: `8188/http` (ComfyUI) and `3923/http` (copyparty). The gateway port 8000 is used by the Hub/Serverless listing only and is not exposed by the Pod template. No persistent volume is requested; `volumeInGb` is 0 and storage is temporary.
 
 `config/runpod-template.json` holds the Pod defaults. `.runpod/template-source.json` records the account source. `.runpod/hub.json` exposes the same values through Hub inputs or fixed values. `.runpod/tests.json` uses the same defaults for readiness tests. `.runpod/test_template_sync.py` fails if any of those four files, this document or the README drift apart.
 
 ## Credentials
 
+The file browser on port 3923 signs in with Runpod Secrets `COPYPARTY_USERNAME` and `COPYPARTY_SECRET`, which the template maps to `COPYPARTY_USERNAME` and `COPYPARTY_PASSWORD`.
+
 Create Runpod Secret `HUGGINGFACE_TOKEN` with a Hugging Face read token, using the account that accepted the gated model agreements for both `ideogram-ai/ideogram-4-nf4-diffusers` and `fal/ideogram-v4-instant`. The two agreements are separate; accepting one does not grant access to the other. Secret references are passed through unchanged; no credential values are stored in this repository or baked into the image.
 
 ## Template variables
+
+### `COPYPARTY_USERNAME`
+
+Default: `{{ RUNPOD_SECRET_COPYPARTY_USERNAME }}`.
+
+Username for the output file browser on port 3923, from Runpod Secret `COPYPARTY_USERNAME`.
+
+### `COPYPARTY_PASSWORD`
+
+Default: `{{ RUNPOD_SECRET_COPYPARTY_SECRET }}`.
+
+Password for the output file browser, from Runpod Secret `COPYPARTY_SECRET`. Without both values the file browser does not start; ComfyUI is unaffected.
 
 ### `HF_TOKEN`
 

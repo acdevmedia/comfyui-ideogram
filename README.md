@@ -109,9 +109,17 @@ Click a thumbnail to open the viewer: arrow keys move through the batch, **space
 
 Picks last for the session and are never uploaded. The ribbon reads recent `/history` entries through ComfyUI's `/view` endpoint, skips transient previews, and never scans the output directory.
 
+## Browse and download outputs
+
+**Connect → HTTP 3923 / Copyparty** opens a gallery of everything in `/workspace/ComfyUI/output`, newest first. Sign in with the values of Runpod Secrets `COPYPARTY_USERNAME` and `COPYPARTY_SECRET`. Select files to download them, or a whole folder as a ZIP. It is read-only: nothing can be uploaded, changed or deleted, and if either secret is missing it stays off without affecting ComfyUI. The log is `/workspace/logs/copyparty.log`.
+
+`zip`, `unzip` and `aws` are on the path in the terminal for moving outputs off the Pod yourself.
+
 ## Environment variables
 
 - `HF_TOKEN`: Hugging Face read credential, mapped to `{{ RUNPOD_SECRET_HUGGINGFACE_TOKEN }}`. Required, with both gated agreements accepted.
+- `COPYPARTY_USERNAME`: `{{ RUNPOD_SECRET_COPYPARTY_USERNAME }}`; login for the file browser on port 3923.
+- `COPYPARTY_PASSWORD`: `{{ RUNPOD_SECRET_COPYPARTY_SECRET }}`; its password. The browser stays off without both.
 - `HF_HOME=/workspace/.cache/huggingface`: Hugging Face cache and metadata location.
 - `MODEL_MODE=both`: download both variants. `base` limits first-boot downloads; `distilled` still needs the base repository's shared encoder, tokenizer and VAE.
 - `STUDIO_VERSION=4`: baked profile identity. Changing it does not install another model generation.

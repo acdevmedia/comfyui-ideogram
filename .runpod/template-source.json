@@ -5,7 +5,8 @@
   "containerDiskInGb": 200,
   "volumeMountPath": "/workspace",
   "ports": [
-    "8188/http"
+    "8188/http",
+    "3923/http"
   ],
   "env": {
     "HF_TOKEN": "{{ RUNPOD_SECRET_HUGGINGFACE_TOKEN }}",
@@ -13,7 +14,9 @@
     "MODEL_MODE": "both",
     "STUDIO_VERSION": "4",
     "PORT": "8000",
-    "PORT_HEALTH": "8001"
+    "PORT_HEALTH": "8001",
+    "COPYPARTY_USERNAME": "{{ RUNPOD_SECRET_COPYPARTY_USERNAME }}",
+    "COPYPARTY_PASSWORD": "{{ RUNPOD_SECRET_COPYPARTY_SECRET }}"
   },
   "isPublic": true,
   "startJupyter": false,

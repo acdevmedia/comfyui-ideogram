@@ -40,6 +40,14 @@
       {
         "key": "PORT_HEALTH",
         "value": "8001"
+      },
+      {
+        "key": "COPYPARTY_USERNAME",
+        "value": "{{ RUNPOD_SECRET_COPYPARTY_USERNAME }}"
+      },
+      {
+        "key": "COPYPARTY_PASSWORD",
+        "value": "{{ RUNPOD_SECRET_COPYPARTY_SECRET }}"
       }
     ]
   }

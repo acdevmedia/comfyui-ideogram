@@ -24,5 +24,7 @@ for workflow in (Path('/opt/acdev/versions')/p['version']/'workflows').glob('*.j
  target=Path('/workspace/ComfyUI/user/default/workflows')/(p['kind']+'-'+p['version']+'-'+workflow.name)
  if not target.exists():shutil.copyfile(workflow,target)
 PY
+source /opt/acdev/scripts/copyparty.sh
+start_copyparty /workspace/ComfyUI/output 'Ideogram outputs'
 cd /opt/acdev/ComfyUI
 exec python3 main.py --listen 0.0.0.0 --port 8188 --base-directory /workspace/ComfyUI --disable-auto-launch --use-pytorch-cross-attention
