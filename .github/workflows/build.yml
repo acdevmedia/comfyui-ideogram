@@ -23,7 +23,10 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Validate source
-        run: python3 scripts/check-source.py
+        run: |
+          python3 scripts/check-source.py
+          python3 scripts/audit-seeds.py
+          node scripts/test-workflow-defaults.mjs
       - name: Validate Runpod template parity and gateway handler
         run: |
           python3 -m pip install --quiet aiohttp

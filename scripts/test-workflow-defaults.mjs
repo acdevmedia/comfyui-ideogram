@@ -1,0 +1,46 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+let extension;
+function node(type, widgets, extra={}) {
+  return {type, widgets, ...extra, addWidget(type,name,value,callback,options) {
+    const widget={type,name,value,callback,options};this.widgets.push(widget);return widget;
+  }};
+}
+const first={name:'seed',value:42};
+const refinement={name:'value_5',value:42};
+const width={name:'width',value:1280};
+const panel=node('panel',[first,refinement,width],{inputs:[{name:'value_5',label:'Refinement seed'}]});
+const nativeSeed={name:'noise_seed',value:42};
+const nativeMode={name:'control_after_generate',value:'randomize'};
+const native=node('RandomNoise',[nativeSeed,nativeMode]);
+const sourceSeed={name:'value',value:123};
+const sourceMode={name:'control_after_generate',value:'fixed'};
+const source=node('PrimitiveInt',[sourceSeed,sourceMode],{id:1,title:'Take variation',properties:{acdevSeedDriver:true}});
+const linkedSeed={name:'seed',value:42};
+const sampler=node('KSampler',[linkedSeed,{name:'control_after_generate',value:'randomize'}],{inputs:[{name:'seed',link:10}]});
+const graph={_nodes:[panel,native,source,sampler],links:{10:{origin_id:1}},getNodeById(id){return this._nodes.find(n=>n.id===id);}};
+panel.subgraph={_nodes:[node('RandomNoise',[{name:'noise_seed',value:42}],{inputs:[{name:'noise_seed',link:2}]})],links:{2:{origin_id:-10}}};
+const app={rootGraph:graph,graphToPrompt(){return [first.value,refinement.value,nativeSeed.value];},registerExtension(e){extension=e;}};
+let src=readFileSync(new URL('../frontend/workflow-defaults/main.js',import.meta.url),'utf8');
+src=src.replace('import { app } from "../../scripts/app.js";','const app = globalThis.__testApp;');
+globalThis.__testApp=app;
+const {prepareSeeds}=await import('data:text/javascript;base64,'+Buffer.from(src).toString('base64'));
+prepareSeeds(graph);
+assert.equal(first.value,42,'preparing UI must not change seed');
+assert.equal(panel.widgets.filter(w=>w.name.endsWith(' mode')).length,2);
+assert(panel.widgets.filter(w=>w.name.endsWith(' mode')).every(w=>w.serialize===false));
+extension.setup();
+const initial=app.graphToPrompt();const next=app.graphToPrompt();
+assert(initial.every(v=>Number.isSafeInteger(v)&&String(v).length===15));
+assert.notEqual(next[0],initial[0]);assert.notEqual(next[1],initial[1]);assert.notEqual(next[0],next[1]);
+assert.equal(sourceSeed.value,123,'upstream native fixed selection must be honored');
+assert.equal(linkedSeed.value,42,'do not randomize overridden sampler widgets');
+assert.equal(width.value,1280);
+const mode=panel.widgets.find(w=>w.name==='seed mode');
+mode.callback('fixed');first.value=987654321;
+nativeMode.value='fixed';nativeSeed.value=123456789;
+app.graphToPrompt();app.graphToPrompt();
+assert.equal(first.value,987654321);assert.equal(nativeSeed.value,123456789);
+assert.equal(panel.properties.acdevSeedModes.seed,'fixed');
+assert.notEqual(refinement.value,next[1],'fixing first pass must not fix refinement');
+console.log('PASS: independent 15-digit seeds; upstream fixed controls, manual seeds, persistence and dimensions preserved.');

@@ -152,3 +152,15 @@ The GHCR package must stay public for anonymous template users. Configure Action
 ## CPU thread sizing
 
 CPU thread pools are sized automatically to the container CPU quota and available CPUs before PyTorch starts, avoiding host-sized pools that can throttle image scaling and export. Set `OMP_NUM_THREADS` and optionally `MKL_NUM_THREADS` to override; startup logs show the selected values. Actual speedup depends on the workload and has not been benchmarked for this revision.
+
+### Workflow defaults
+
+Seed controls default to randomize, including upstream controls and independent
+first-pass/refinement seeds in nested panels. Random seeds use 15 digits where the
+node range allows it. Use the native after-generate control, or the added seed mode
+selector, to choose Fixed and enter a repeatable seed manually. These choices persist
+when the workflow is saved. Model internals are folded into collapsed subgraphs and notes are
+removed from packaged canvases. Inputs, editable controls and output previews remain
+available. After editing or regenerating workflows, run
+`python3 scripts/workflow_defaults.py` to reapply the canvas layout. These changes ship
+with the next container image; existing pods need the updated image.

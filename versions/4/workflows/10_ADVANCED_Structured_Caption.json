@@ -79,7 +79,10 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "AcdevIdeogramStudio"
+        "Node name for S&R": "AcdevIdeogramStudio",
+        "acdevSeedModes": {
+          "seed": "randomize"
+        }
       },
       "widgets_values": [
         "",

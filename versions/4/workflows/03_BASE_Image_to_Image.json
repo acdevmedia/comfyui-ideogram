@@ -45,7 +45,10 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "AcdevIdeogramStudio"
+        "Node name for S&R": "AcdevIdeogramStudio",
+        "acdevSeedModes": {
+          "seed": "randomize"
+        }
       },
       "widgets_values": [
         "Change the scene to a rainy evening with warm window light and wet cobblestones, keeping the subject.",
@@ -126,7 +129,7 @@
         {
           "name": "MASK",
           "type": "MASK",
-          "links": []
+          "links": null
         }
       ],
       "properties": {

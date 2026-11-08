@@ -13,6 +13,7 @@ COPY custom_nodes/acdev_studio /opt/acdev/ComfyUI/custom_nodes/acdev_studio
 COPY scripts /opt/acdev/scripts
 COPY config /opt/acdev/config
 COPY versions /opt/acdev/versions
+COPY frontend/workflow-defaults/ /opt/acdev/ComfyUI/web/extensions/ACDEV-workflow-defaults/
 COPY frontend/image-gallery/ /opt/acdev/ComfyUI/web/extensions/ACDEV-IDEOGRAM4-image-gallery/
 COPY .runpod/handler.py /opt/acdev/handler.py
 RUN python3 /opt/acdev/scripts/patch-comfyui-proxy-guard.py /opt/acdev/ComfyUI/server.py

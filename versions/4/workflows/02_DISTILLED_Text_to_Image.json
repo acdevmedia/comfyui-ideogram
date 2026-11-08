@@ -40,7 +40,10 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "AcdevIdeogramStudio"
+        "Node name for S&R": "AcdevIdeogramStudio",
+        "acdevSeedModes": {
+          "seed": "randomize"
+        }
       },
       "widgets_values": [
         "A witty editorial poster of a red fox in a bow tie reading a newspaper at a sunny Paris cafe table, with the headline \"THE DAILY FOX\" across the top.",
