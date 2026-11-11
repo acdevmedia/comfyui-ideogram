@@ -21,7 +21,7 @@ const sampler=node('KSampler',[linkedSeed,{name:'control_after_generate',value:'
 const graph={_nodes:[panel,native,source,sampler],links:{10:{origin_id:1}},getNodeById(id){return this._nodes.find(n=>n.id===id);}};
 panel.subgraph={_nodes:[node('RandomNoise',[{name:'noise_seed',value:42}],{inputs:[{name:'noise_seed',link:2}]})],links:{2:{origin_id:-10}}};
 const app={rootGraph:graph,graphToPrompt(){return [first.value,refinement.value,nativeSeed.value];},registerExtension(e){extension=e;}};
-let src=readFileSync(new URL('../frontend/workflow-defaults/main.js',import.meta.url),'utf8');
+let src=readFileSync(new URL('../custom_nodes/acdev_workflow_defaults/web/main.js',import.meta.url),'utf8');
 src=src.replace('import { app } from "../../scripts/app.js";','const app = globalThis.__testApp;');
 globalThis.__testApp=app;
 const {prepareSeeds}=await import('data:text/javascript;base64,'+Buffer.from(src).toString('base64'));

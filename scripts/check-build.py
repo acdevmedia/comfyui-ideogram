@@ -12,6 +12,8 @@ with open('/tmp/comfy-build-check.log','w') as log:
     break
    except Exception:time.sleep(1)
   else:raise TimeoutError('ComfyUI CPU smoke check timed out')
+  from verify_frontend import verify_frontend
+  verify_frontend()
   for path in (Path('/opt/acdev/versions')/p['version']/'api').glob('*.json'):
    graph=json.loads(path.read_text())
    for node in graph.values():

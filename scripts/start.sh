@@ -21,7 +21,8 @@ import json,shutil
 from pathlib import Path
 p=json.loads(Path('/opt/acdev/config/profile.json').read_text())
 for workflow in (Path('/opt/acdev/versions')/p['version']/'workflows').glob('*.json'):
- target=Path('/workspace/ComfyUI/user/default/workflows')/(p['kind']+'-'+p['version']+'-'+workflow.name)
+ target=Path('/workspace/ComfyUI/user/default/workflows/Packaged 2026-11-11')/(p['kind']+'-'+p['version']+'-'+workflow.name)
+ target.parent.mkdir(parents=True,exist_ok=True)
  if not target.exists():shutil.copyfile(workflow,target)
 PY
 source /opt/acdev/scripts/copyparty.sh

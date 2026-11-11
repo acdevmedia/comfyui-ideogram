@@ -164,3 +164,7 @@ removed from packaged canvases. Inputs, editable controls and output previews re
 available. After editing or regenerating workflows, run
 `python3 scripts/workflow_defaults.py` to reapply the canvas layout. These changes ship
 with the next container image; existing pods need the updated image.
+
+The workflow seed extension is registered as `acdev_workflow_defaults` through
+ComfyUI's custom-node `WEB_DIRECTORY` loader. Open the updated workflows under
+**Packaged 2026-11-11** in the workflow sidebar; older saved copies remain available.
